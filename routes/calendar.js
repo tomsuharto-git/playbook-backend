@@ -284,4 +284,24 @@ router.post('/regenerate', async (req, res) => {
   }
 });
 
+// TEMPORARY: Diagnostic endpoint
+router.get('/test-db', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('daily_briefs')
+      .select('date, event_ids')
+      .eq('date', '2025-11-02')
+      .maybeSingle();
+
+    res.json({
+      success: true,
+      found: !!data,
+      data: data,
+      error: error ? error.message : null
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;
