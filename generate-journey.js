@@ -1,0 +1,269 @@
+const { createClient } = require('@supabase/supabase-js');
+const Anthropic = require('@anthropic-ai/sdk');
+require('dotenv').config();
+
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_KEY
+);
+
+const anthropic = new Anthropic({
+  apiKey: process.env.ANTHROPIC_API_KEY
+});
+
+async function generateJourneyForProject(projectName) {
+  console.log(`\n🎯 Generating journey for ${projectName}...\n`);
+
+  // 1. Fetch project details
+  const { data: project, error: projectError } = await supabase
+    .from('projects')
+    .select('*')
+    .eq('name', projectName)
+    .single();
+
+  if (projectError) {
+    console.error('Error fetching project:', projectError);
+    return;
+  }
+
+  // 2. Fetch recent narratives for context (Phase 2 table)
+  const { data: narratives, error: narrativesError } = await supabase
+    .from('narratives')
+    .select('*')
+    .eq('project_id', project.id)
+    .order('date', { ascending: false })
+    .limit(10); // Increased from 5 to 10 for richer context
+
+  const narrativeContext = narratives && narratives.length > 0
+    ? narratives.map(n => `- ${n.date}: ${n.headline}\n  ${n.bullets?.join('\n  ') || ''}`).join('\n')
+    : 'No recent narratives available.';
+
+  // 3. Fetch active tasks for context
+  const { data: tasks, error: tasksError } = await supabase
+    .from('tasks')
+    .select('*')
+    .eq('project_id', project.id)
+    .in('status', ['pending', 'active', 'blocked'])
+    .limit(10);
+
+  const taskContext = tasks && tasks.length > 0
+    ? tasks.map(t => `- ${t.title} (${t.urgency}, ${t.status})`).join('\n')
+    : 'No active tasks.';
+
+  // 4. Build prompt for Claude based on project type
+  const deadline = project.deadline ? new Date(project.deadline).toLocaleDateString() : 'No deadline set';
+  const today = new Date().toLocaleDateString();
+  const isCodeProject = project.tag === 'Code';
+
+  let prompt;
+
+  if (isCodeProject) {
+    // Code Project: Focus on next steps, not deadline-driven milestones
+    prompt = `You are a code project management AI. Generate the next logical steps for this coding project based on recent progress and current tasks.
+
+**Project Name:** ${project.name}
+**Type:** Code/Development Project
+**Today's Date:** ${today}
+**Project Status:** ${project.status}
+
+**Recent Activity:**
+${narrativeContext}
+
+**Active Tasks:**
+${taskContext}
+
+Based on this information, create a JSON response with:
+1. Overall project status: "on_track", "at_risk", "critical", or "stalled"
+2. A brief status summary (1-2 sentences about current state)
+3. 3-5 next logical steps with:
+   - description (clear, actionable next step)
+   - status ("in_progress", "upcoming") - use "in_progress" if there are related active tasks
+   - target_date (OPTIONAL: only include if there's a clear timeframe)
+   - dependencies (optional: what needs to happen first)
+
+IMPORTANT:
+- Focus on next steps based on what's already been accomplished
+- Steps should be incremental and logical progressions
+- Don't create arbitrary deadlines - target_date can be null/omitted
+- Status should reflect reality: "in_progress" if related tasks exist, otherwise "upcoming"
+
+Return ONLY valid JSON in this exact format:
+{
+  "status": "on_track",
+  "status_summary": "Brief summary here",
+  "milestones": [
+    {
+      "description": "Next step description",
+      "status": "in_progress",
+      "target_date": null,
+      "dependencies": ["Optional dependency"]
+    }
+  ]
+}`;
+  } else {
+    // Regular Project: Deadline-driven milestones
+    prompt = `You are a strategic project management AI. Generate a realistic project journey with milestones for the following project:
+
+**Project Name:** ${project.name}
+**Deadline:** ${deadline} (${project.deadline_label || 'No label'})
+**Today's Date:** ${today}
+**Project Status:** ${project.status}
+
+**Recent Activity:**
+${narrativeContext}
+
+**Active Tasks:**
+${taskContext}
+
+Based on this information, create a JSON response with:
+1. Overall project status: "on_track", "at_risk", "critical", or "stalled"
+2. A brief status summary (1-2 sentences)
+3. 3-5 key milestones with:
+   - description (clear, actionable milestone name for preparatory work BEFORE the deadline)
+   - status ("completed", "in_progress", "upcoming", "at_risk")
+   - target_date (realistic date in YYYY-MM-DD format, should be BEFORE the deadline)
+   - dependencies (optional: what needs to happen first)
+
+IMPORTANT:
+- Milestones should be preparatory steps that lead UP TO the deadline, not the deadline event itself.
+  For example, if the deadline is a "Pitch Presentation", the milestones should be things like "Complete pitch deck",
+  "Rehearse presentation", etc. - NOT "Pitch Presentation" as a milestone.
+- Milestone dates should fall on weekdays (Monday-Friday), never on weekends (Saturday-Sunday).
+  If a natural milestone date would fall on a weekend, move it to the following Monday.
+
+Return ONLY valid JSON in this exact format:
+{
+  "status": "on_track",
+  "status_summary": "Brief summary here",
+  "milestones": [
+    {
+      "description": "Milestone name",
+      "status": "in_progress",
+      "target_date": "2025-10-25",
+      "dependencies": ["Optional dependency"]
+    }
+  ]
+}`;
+  }
+  // 5. Call Claude API
+  console.log('📞 Calling Claude API...\n');
+
+  const message = await anthropic.messages.create({
+    model: 'claude-haiku-4-5',
+    max_tokens: 2000,
+    messages: [{
+      role: 'user',
+      content: prompt
+    }]
+  });
+
+  let responseText = message.content[0].text;
+  console.log('📋 Claude Response:\n', responseText, '\n');
+
+  // Remove markdown code blocks if present
+  responseText = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+
+  // 6. Parse and validate JSON
+  let aiInsights;
+  try {
+    aiInsights = JSON.parse(responseText);
+  } catch (e) {
+    console.error('❌ Failed to parse JSON response:', e);
+    return;
+  }
+
+  // 7. Update project with AI insights
+  const { data: updated, error: updateError } = await supabase
+    .from('projects')
+    .update({
+      ai_insights: aiInsights,
+      journey_generated_at: new Date().toISOString()
+    })
+    .eq('id', project.id)
+    .select();
+
+  if (updateError) {
+    console.error('❌ Error updating project:', updateError);
+  } else {
+    console.log('✅ Successfully generated journey for', projectName);
+    console.log('\n📊 Generated Insights:');
+    console.log('Status:', aiInsights.status);
+    console.log('Summary:', aiInsights.status_summary);
+    console.log('\nMilestones:');
+    aiInsights.milestones?.forEach((m, i) => {
+      console.log(`  ${i + 1}. ${m.description} (${m.status}) - ${m.target_date}`);
+    });
+  }
+}
+
+/**
+ * Generate milestones for all active Code projects
+ */
+async function generateCodeMilestones() {
+  console.log('\n🚀 Generating Next Steps for Code Projects\n');
+  console.log('='.repeat(60));
+
+  try {
+    const { data: codeProjects, error } = await supabase
+      .from('projects')
+      .select('*')
+      .eq('tag', 'Code')
+      .eq('status', 'active');
+
+    if (error) {
+      console.error('❌ Error fetching Code projects:', error);
+      return;
+    }
+
+    if (!codeProjects || codeProjects.length === 0) {
+      console.log('ℹ️  No active Code projects found');
+      return;
+    }
+
+    console.log(`\n✅ Found ${codeProjects.length} active Code projects\n`);
+
+    for (const project of codeProjects) {
+      console.log(`\n📦 Processing: ${project.name}`);
+      await generateJourneyForProject(project.name);
+    }
+
+    console.log('\n' + '='.repeat(60));
+    console.log(`\n✨ Generated next steps for ${codeProjects.length} Code projects\n`);
+
+  } catch (error) {
+    console.error('❌ Unexpected error in generateCodeMilestones:', error);
+  }
+}
+
+/**
+ * Start the milestone generation schedule for Code projects (3x daily: 6am, 12pm, 6pm ET)
+ */
+function startCodeMilestonesSchedule() {
+  const cron = require('node-cron');
+  console.log('⏰ Code milestones schedule started (6am, 12pm, 6pm)');
+
+  // 6:00 AM ET
+  cron.schedule('0 6 * * *', async () => {
+    console.log('\n⏰ [6am] Code milestones generation triggered');
+    await generateCodeMilestones();
+  });
+
+  // 12:00 PM ET
+  cron.schedule('0 12 * * *', async () => {
+    console.log('\n⏰ [12pm] Code milestones generation triggered');
+    await generateCodeMilestones();
+  });
+
+  // 6:00 PM ET
+  cron.schedule('0 18 * * *', async () => {
+    console.log('\n⏰ [6pm] Code milestones generation triggered');
+    await generateCodeMilestones();
+  });
+}
+
+module.exports = { generateJourneyForProject, generateCodeMilestones, startCodeMilestonesSchedule };
+
+// Run for ITA Airways if executed directly
+if (require.main === module) {
+  generateJourneyForProject('ITA Airways');
+}

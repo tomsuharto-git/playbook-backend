@@ -1,0 +1,31 @@
+const { createClient } = require('@supabase/supabase-js');
+require('dotenv').config();
+
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_KEY
+);
+
+async function checkFullStructure() {
+  console.log('\n📋 Checking full meeting note structure...\n');
+
+  // Get ITA Airways project
+  const { data: project } = await supabase
+    .from('projects')
+    .select('id')
+    .eq('name', 'ITA Airways')
+    .single();
+
+  // Get one meeting note to see all available fields
+  const { data: notes } = await supabase
+    .from('meeting_notes')
+    .select('*')
+    .eq('project_id', project.id)
+    .eq('title', 'Meeting Notes')
+    .single();
+
+  console.log('Full Meeting Note Structure:');
+  console.log(JSON.stringify(notes, null, 2));
+}
+
+checkFullStructure();
