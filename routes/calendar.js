@@ -47,7 +47,7 @@ router.get('/brief', async (req, res) => {
         // FIX 4: Use .maybeSingle() instead of .single() to handle duplicates gracefully
         let { data: briefData, error: briefError } = await supabase
           .from('daily_briefs')
-          .select('event_ids, calendar_events, id, created_at')
+          .select('event_ids, calendar_events, id')
           .eq('date', dateStr)
           .maybeSingle();
 
