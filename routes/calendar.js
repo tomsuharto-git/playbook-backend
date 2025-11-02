@@ -293,7 +293,15 @@ router.post('/regenerate', async (req, res) => {
 // TEMPORARY: Diagnostic endpoint
 router.get('/test-db', async (req, res) => {
   try {
-    const { data, error } = await supabase
+    // Test 1: Select same columns as main endpoint
+    const { data: fullData, error: fullError } = await supabase
+      .from('daily_briefs')
+      .select('event_ids, calendar_events, id, created_at')
+      .eq('date', '2025-11-02')
+      .maybeSingle();
+
+    // Test 2: Select minimal columns
+    const { data: minData, error: minError } = await supabase
       .from('daily_briefs')
       .select('date, event_ids')
       .eq('date', '2025-11-02')
@@ -301,9 +309,17 @@ router.get('/test-db', async (req, res) => {
 
     res.json({
       success: true,
-      found: !!data,
-      data: data,
-      error: error ? error.message : null
+      fullSelect: {
+        found: !!fullData,
+        data: fullData,
+        error: fullError ? fullError.message : null,
+        errorCode: fullError ? fullError.code : null
+      },
+      minimalSelect: {
+        found: !!minData,
+        data: minData,
+        error: minError ? minError.message : null
+      }
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
