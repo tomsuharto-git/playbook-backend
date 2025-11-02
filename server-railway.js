@@ -217,9 +217,25 @@ process.on('SIGTERM', () => {
 // ============================================================
 
 const { scheduleQualityControl } = require('./jobs/quality-control-job');
+const { generateBriefings } = require('./jobs/generate-briefings');
 
 // Start QC job (runs every 6 hours: midnight, 6am, noon, 6pm ET)
 scheduleQualityControl();
+
+// Schedule briefing generation (runs 3x daily: 6am, 12pm, 6pm ET)
+// Cron syntax: minute hour * * *
+// Uses Eastern Time timezone
+cron.schedule('0 6,12,18 * * *', async () => {
+  try {
+    console.log('\n🔄 Scheduled briefing generation starting...');
+    await generateBriefings();
+    console.log('✅ Scheduled briefing generation complete\n');
+  } catch (error) {
+    console.error('❌ Scheduled briefing generation failed:', error.message);
+  }
+}, {
+  timezone: 'America/New_York'
+});
 
 // ============================================================
 // START SERVER
@@ -234,6 +250,7 @@ Active Services:
   🔄 Central Processor: Ready
   📊 Three-Entity Creation: Tasks, Events, Narratives
   🔍 Quality Control: Scheduled (every 6 hours)
+  📅 Briefing Generation: Scheduled (6am, 12pm, 6pm ET)
   🌐 Phase 2 Test Endpoint: /api/phase2/test
 
 URL: ${process.env.RAILWAY_STATIC_URL || 'http://localhost:' + PORT}
