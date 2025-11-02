@@ -51,6 +51,12 @@ router.get('/brief', async (req, res) => {
           .eq('date', dateStr)
           .maybeSingle();
 
+        console.log(`    🔍 Query result for ${dateStr}:`, {
+          hasBriefData: !!briefData,
+          briefError: briefError ? briefError.message : null,
+          briefErrorCode: briefError ? briefError.code : null
+        });
+
         // Handle duplicate rows (PGRST116 means multiple rows found)
         if (briefError && briefError.code === 'PGRST116') {
           console.error(`    🚨 CRITICAL: Multiple daily_briefs rows found for ${dateStr}`);
