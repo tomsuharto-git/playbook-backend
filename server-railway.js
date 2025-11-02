@@ -14,8 +14,6 @@ const cron = require('node-cron');
 const centralProcessor = require('./services/central-processor');
 const unifiedEmailHandler = require('./services/unified-email-handler');
 
-// Email scanners are not available in this minimal build
-
 // Initialize Express app
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -172,11 +170,6 @@ app.post('/api/process', async (req, res) => {
 });
 
 // ============================================================
-// EMAIL SCANNING
-// ============================================================
-// Email scanning is handled by the main server, not this minimal Railway version
-
-// ============================================================
 // ERROR HANDLING
 // ============================================================
 
@@ -218,9 +211,13 @@ process.on('SIGTERM', () => {
 
 const { scheduleQualityControl } = require('./jobs/quality-control-job');
 const { generateBriefings } = require('./jobs/generate-briefings');
+const { scheduleEmailScanning } = require('./jobs/email-scanning-job');
 
 // Start QC job (runs every 6 hours: midnight, 6am, noon, 6pm ET)
 scheduleQualityControl();
+
+// Start email scanning (runs every 30 minutes)
+scheduleEmailScanning();
 
 // Schedule briefing generation (runs 3x daily: 6am, 12pm, 6pm ET)
 // Cron syntax: minute hour * * *
@@ -249,6 +246,7 @@ app.listen(PORT, () => {
 Active Services:
   🔄 Central Processor: Ready
   📊 Three-Entity Creation: Tasks, Events, Narratives
+  📧 Email Scanning: Scheduled (every 30 minutes)
   🔍 Quality Control: Scheduled (every 6 hours)
   📅 Briefing Generation: Scheduled (6am, 12pm, 6pm ET)
   🌐 Phase 2 Test Endpoint: /api/phase2/test
