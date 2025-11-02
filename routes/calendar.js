@@ -51,12 +51,6 @@ router.get('/brief', async (req, res) => {
           .eq('date', dateStr)
           .maybeSingle();
 
-        console.log(`    🔍 Query result for ${dateStr}:`, {
-          hasBriefData: !!briefData,
-          briefError: briefError ? briefError.message : null,
-          briefErrorCode: briefError ? briefError.code : null
-        });
-
         // Handle duplicate rows (PGRST116 means multiple rows found)
         if (briefError && briefError.code === 'PGRST116') {
           console.error(`    🚨 CRITICAL: Multiple daily_briefs rows found for ${dateStr}`);
@@ -287,42 +281,6 @@ router.post('/regenerate', async (req, res) => {
       success: false,
       error: error.message
     });
-  }
-});
-
-// TEMPORARY: Diagnostic endpoint
-router.get('/test-db', async (req, res) => {
-  try {
-    // Test 1: Select same columns as main endpoint
-    const { data: fullData, error: fullError } = await supabase
-      .from('daily_briefs')
-      .select('event_ids, calendar_events, id, created_at')
-      .eq('date', '2025-11-02')
-      .maybeSingle();
-
-    // Test 2: Select minimal columns
-    const { data: minData, error: minError } = await supabase
-      .from('daily_briefs')
-      .select('date, event_ids')
-      .eq('date', '2025-11-02')
-      .maybeSingle();
-
-    res.json({
-      success: true,
-      fullSelect: {
-        found: !!fullData,
-        data: fullData,
-        error: fullError ? fullError.message : null,
-        errorCode: fullError ? fullError.code : null
-      },
-      minimalSelect: {
-        found: !!minData,
-        data: minData,
-        error: minError ? minError.message : null
-      }
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
   }
 });
 
