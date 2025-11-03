@@ -169,6 +169,27 @@ app.post('/api/process', async (req, res) => {
   }
 });
 
+// Manual email scan endpoint
+app.post('/api/email/scan', async (req, res) => {
+  try {
+    console.log('\n🔄 Manual email scan triggered via API...');
+    const { runEmailScanning } = require('./jobs/email-scanning-job');
+    const results = await runEmailScanning();
+
+    res.json({
+      success: results.success,
+      message: 'Email scan completed',
+      results
+    });
+  } catch (error) {
+    console.error('Manual email scan error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 // ============================================================
 // ERROR HANDLING
 // ============================================================
