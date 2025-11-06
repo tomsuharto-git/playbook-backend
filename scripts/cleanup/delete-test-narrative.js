@@ -1,3 +1,5 @@
+const logger = require('../../utils/logger');
+
 const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config();
 
@@ -7,7 +9,7 @@ const supabase = createClient(
 );
 
 async function deleteTestNarrative() {
-  console.log('\n🗑️  Deleting test narrative entry...\n');
+  logger.info('\n🗑️  Deleting test narrative entry...\n');
 
   const { data, error } = await supabase
     .from('meeting_notes')
@@ -16,17 +18,17 @@ async function deleteTestNarrative() {
     .select();
 
   if (error) {
-    console.error('❌ Error deleting:', error);
+    logger.error('❌ Error deleting:', { arg0: error });
     return;
   }
 
   if (data && data.length > 0) {
-    console.log('✅ Successfully deleted:');
+    logger.info('✅ Successfully deleted:');
     data.forEach(item => {
-      console.log(`   - ${item.title} (${item.created_at})`);
+      logger.info('-  ()', { title: item.title, created_at: item.created_at });
     });
   } else {
-    console.log('⚠️  No matching entry found');
+    logger.warn('⚠️  No matching entry found');
   }
 }
 

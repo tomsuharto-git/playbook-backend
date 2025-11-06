@@ -8,6 +8,7 @@ const { exec } = require('child_process');
 const { promisify } = require('util');
 const fs = require('fs').promises;
 const path = require('path');
+const logger = require('../utils/logger').service('audio-concatenator');
 
 const execAsync = promisify(exec);
 
@@ -29,7 +30,7 @@ class AudioConcatenator {
     const { intro, outro } = options;
     const totalSegments = inputFiles.length + (intro ? 1 : 0) + (outro ? 1 : 0);
 
-    console.log(`   🎬 Concatenating ${totalSegments} audio segments${intro || outro ? ' (with music)' : ''}...`);
+    logger.info('🎬 Concatenating  audio segments...', { totalSegments: totalSegments, intro || outro ? ' (with music)' : '': intro || outro ? ' (with music)' : '' });
 
     // Create a temporary file list for ffmpeg
     const fileListPath = path.join(path.dirname(outputPath), 'concat_list.txt');
@@ -72,9 +73,9 @@ class AudioConcatenator {
       const { stdout: durationOutput } = await execAsync(durationCommand);
       const duration = Math.round(parseFloat(durationOutput.trim()));
 
-      console.log(`   ✅ Concatenation complete!`);
-      console.log(`   📊 Duration: ${Math.floor(duration / 60)}m ${duration % 60}s`);
-      console.log(`   📦 File size: ${(stats.size / 1024 / 1024).toFixed(2)} MB`);
+      logger.info('✅ Concatenation complete!');
+      logger.debug('📊 Duration: m s', { floor(duration / 60): Math.floor(duration / 60), duration % 60: duration % 60 });
+      logger.info('📦 File size:  MB', { toFixed(2): (stats.size / 1024 / 1024).toFixed(2) });
 
       return {
         outputPath,
@@ -83,7 +84,7 @@ class AudioConcatenator {
       };
 
     } catch (error) {
-      console.error(`   ❌ Concatenation error: ${error.message}`);
+      logger.error('❌ Concatenation error:', { message: error.message });
       throw error;
 
     } finally {
@@ -101,17 +102,17 @@ class AudioConcatenator {
    * @param {Array<string>} files - Array of file paths to delete
    */
   async cleanupSegments(files) {
-    console.log(`   🧹 Cleaning up ${files.length} temporary segments...`);
+    logger.info('🧹 Cleaning up  temporary segments...', { length: files.length });
 
     for (const file of files) {
       try {
         await fs.unlink(file);
       } catch (error) {
-        console.error(`   ⚠️  Failed to delete ${file}: ${error.message}`);
+        logger.error('⚠️  Failed to delete :', { file: file, message: error.message });
       }
     }
 
-    console.log(`   ✅ Cleanup complete`);
+    logger.info('✅ Cleanup complete');
   }
 
   /**
@@ -123,9 +124,9 @@ class AudioConcatenator {
       await execAsync('ffmpeg -version');
       return true;
     } catch (error) {
-      console.error('   ❌ ffmpeg not found. Please install it:');
-      console.error('   macOS: brew install ffmpeg');
-      console.error('   Ubuntu: sudo apt-get install ffmpeg');
+      logger.error('   ❌ ffmpeg not found. Please install it:');
+      logger.error('   macOS: brew install ffmpeg');
+      logger.error('   Ubuntu: sudo apt-get install ffmpeg');
       return false;
     }
   }

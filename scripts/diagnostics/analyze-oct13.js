@@ -1,3 +1,5 @@
+const logger = require('../../utils/logger');
+
 require('dotenv').config();
 const { supabase } = require('./db/supabase-client');
 
@@ -10,7 +12,7 @@ async function check() {
 
   const gmailEvents = data.calendar_events.filter(e => e.calendar_category !== 'Outlook');
 
-  console.log('Analyzing Gmail events on Oct 13:\n');
+  logger.info('Analyzing Gmail events on Oct 13:\n');
 
   // Check multi-day events
   const multiDay = gmailEvents.filter(e => {
@@ -20,11 +22,11 @@ async function check() {
     return start !== end;
   });
 
-  console.log('Multi-day all-day events:');
+  logger.info('Multi-day all-day events:');
   multiDay.forEach(e => {
-    console.log(`  - ${e.summary}`);
-    console.log(`    Start: ${e.start.date}`);
-    console.log(`    End: ${e.end.date}`);
+    logger.info('-', { summary: e.summary });
+    logger.info('Start:', { date: e.start.date });
+    logger.info('End:', { date: e.end.date });
   });
 
   // Check late-night events
@@ -37,15 +39,15 @@ async function check() {
     return etDate !== '2025-10-13';
   });
 
-  console.log('\nEvents with wrong date (timezone issue):');
+  logger.info('\nEvents with wrong date (timezone issue):');
   lateNight.forEach(e => {
     const time = e.start?.dateTime;
     const date = new Date(time);
     const etFormatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' });
     const etDate = etFormatter.format(date);
-    console.log(`  - ${e.summary}`);
-    console.log(`    Stored time: ${time}`);
-    console.log(`    Actual ET date: ${etDate}`);
+    logger.info('-', { summary: e.summary });
+    logger.info('Stored time:', { time: time });
+    logger.info('Actual ET date:', { etDate: etDate });
   });
 
   // Check duplicates
@@ -56,15 +58,15 @@ async function check() {
     )
   );
 
-  console.log('\nDuplicates (exist in both Gmail and Outlook):');
-  duplicates.forEach(e => console.log(`  - ${e.summary}`));
+  logger.info('\nDuplicates (exist in both Gmail and Outlook):');
+  duplicates.forEach(e => logger.info('-', { summary: e.summary });
 
-  console.log(`\nSummary:`);
-  console.log(`  Total Gmail events: ${gmailEvents.length}`);
-  console.log(`  Multi-day spanning: ${multiDay.length}`);
-  console.log(`  Wrong date (late-night): ${lateNight.length}`);
-  console.log(`  Duplicates: ${duplicates.length}`);
-  console.log(`  Correct unique events: ${gmailEvents.length - lateNight.length - duplicates.length}`);
+  logger.info('\nSummary:');
+  logger.info('Total Gmail events:', { length: gmailEvents.length });
+  logger.info('Multi-day spanning:', { length: multiDay.length });
+  logger.info('Wrong date (late-night):', { length: lateNight.length });
+  logger.info('Duplicates:', { length: duplicates.length });
+  logger.info('Correct unique events:', { length: gmailEvents.length - lateNight.length - duplicates.length });
 }
 
 check();

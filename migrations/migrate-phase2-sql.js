@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+const logger = require('../utils/logger');
+
 /**
  * Phase 2 Migration Script - SQL Version
  *
@@ -40,7 +42,7 @@ const colors = {
 };
 
 function log(message, color = 'reset') {
-  console.log(`${colors[color]}${message}${colors.reset}`);
+  logger.info('', { colors[color]: colors[color], message: message, reset: colors.reset });
 }
 
 /**
@@ -84,7 +86,7 @@ async function executeSQL(query, params = []) {
     return data;
   } catch (err) {
     // Last resort: Return null and let caller handle
-    console.error('SQL execution error:', err.message);
+    logger.error('SQL execution error:', { arg0: err.message });
     return null;
   }
 }

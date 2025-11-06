@@ -1,3 +1,5 @@
+const logger = require('../utils/logger').service('calendar-normalizer');
+
 /**
  * Calendar Normalizer
  * Shared utilities for normalizing calendar events from different sources
@@ -49,7 +51,7 @@ function normalizeOutlookEvent(outlookEvent) {
   // This prevents "No Title" events from ever entering the system
   const subject = outlookEvent.subject || '';
   if (!subject || subject.trim() === '' || subject.trim() === 'No Title') {
-    console.log(`     🚫 [LAYER 1] Rejecting Outlook event without valid subject (ID: ${outlookEvent.id || 'unknown'})`);
+    logger.info('🚫 [LAYER 1] Rejecting Outlook event without valid subject (ID: )', { id || 'unknown': outlookEvent.id || 'unknown' });
     return null;
   }
 
@@ -113,7 +115,7 @@ function normalizeGoogleEvent(googleEvent) {
   // This prevents "No Title" events from ever entering the system
   const summary = googleEvent.summary || '';
   if (!summary || summary.trim() === '' || summary.trim() === 'No Title') {
-    console.log(`     🚫 [LAYER 1] Rejecting Google event without valid summary (ID: ${googleEvent.id || 'unknown'})`);
+    logger.info('🚫 [LAYER 1] Rejecting Google event without valid summary (ID: )', { id || 'unknown': googleEvent.id || 'unknown' });
     return null;
   }
 
@@ -247,12 +249,12 @@ function deduplicateEvents(events) {
       const existing = eventMap.get(key);
       if (event.calendar_category === 'Outlook' && existing.calendar_category === 'Google') {
         // Replace Google with Outlook
-        console.log(`     🔄 Dedup: Preferring Outlook over Google for "${event.summary}"`);
+        logger.info('🔄 Dedup: Preferring Outlook over Google for ""', { summary: event.summary });
         eventMap.set(key, event);
       }
       // Otherwise keep the existing one (first occurrence wins)
       else {
-        console.log(`     🔄 Dedup: Skipping duplicate "${event.summary}"`);
+        logger.info('🔄 Dedup: Skipping duplicate ""', { summary: event.summary });
       }
     }
   }

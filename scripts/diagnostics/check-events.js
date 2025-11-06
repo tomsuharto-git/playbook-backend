@@ -1,3 +1,5 @@
+const logger = require('../../utils/logger');
+
 const { supabase } = require('./db/supabase-client');
 
 (async () => {
@@ -7,25 +9,25 @@ const { supabase } = require('./db/supabase-client');
     .in('date', ['2025-10-12', '2025-10-13']);
 
   if (error) {
-    console.error('Error:', error);
+    logger.error('Error:', { arg0: error });
   } else {
     data.forEach(day => {
-      console.log(`\n${day.date}: ${day.calendar_events.length} events`);
+      logger.info('\n:  events', { date: day.date, length: day.calendar_events.length });
       const googleCount = day.calendar_events.filter(e => e.calendar_category !== 'Outlook').length;
       const outlookCount = day.calendar_events.filter(e => e.calendar_category === 'Outlook').length;
-      console.log(`  Google: ${googleCount}, Outlook: ${outlookCount}`);
+      logger.info('Google: , Outlook:', { googleCount: googleCount, outlookCount: outlookCount });
 
       // Sample first 10 Outlook events
-      console.log('\n  First 10 Outlook events:');
+      logger.info('\n  First 10 Outlook events:');
       day.calendar_events
         .filter(e => e.calendar_category === 'Outlook')
         .slice(0, 10)
         .forEach((e, i) => {
-          console.log(`    ${i+1}. ${e.summary || '(NO SUMMARY FIELD)'}`);
-          if (!e.summary && e.subject) console.log(`       subject field: ${e.subject}`);
+          logger.info('.', { i+1: i+1, summary || '(NO SUMMARY FIELD)': e.summary || '(NO SUMMARY FIELD)' });
+          if (!e.summary && e.subject) logger.info('subject field:', { subject: e.subject });
           if (!e.summary) {
             const keys = Object.keys(e).slice(0, 10);
-            console.log(`       available fields: ${keys.join(', ')}`);
+            logger.info('available fields:', { join(', '): keys.join(', ') });
           }
         });
     });

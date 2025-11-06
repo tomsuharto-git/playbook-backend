@@ -4,6 +4,7 @@
 
 const { supabase } = require('./db/supabase-client');
 const fs = require('fs');
+const logger = require('../../utils/logger');
 
 async function debugRawDb() {
   const now = new Date();
@@ -12,7 +13,7 @@ async function debugRawDb() {
   });
   const todayET = etFormatter.format(now);
 
-  console.log(`\n🔍 Fetching raw database record for ${todayET}\n`);
+  logger.debug('\n🔍 Fetching raw database record for \n', { todayET: todayET });
 
   try {
     const { data, error } = await supabase
@@ -22,55 +23,55 @@ async function debugRawDb() {
       .single();
 
     if (error) {
-      console.error('❌ Error:', error);
+      logger.error('❌ Error:', { arg0: error });
       return;
     }
 
     if (!data) {
-      console.log('❌ No record found');
+      logger.error('❌ No record found');
       return;
     }
 
     // Save full record to file
     fs.writeFileSync('./temp-db-record.json', JSON.stringify(data, null, 2));
-    console.log('💾 Saved full record to temp-db-record.json\n');
+    logger.info('💾 Saved full record to temp-db-record.json\n');
 
-    console.log('📊 Record metadata:');
-    console.log(`  - date: ${data.date}`);
-    console.log(`  - created_at: ${data.created_at}`);
-    console.log(`  - updated_at: ${data.updated_at}`);
-    console.log(`  - calendar_events type: ${typeof data.calendar_events}`);
-    console.log(`  - calendar_events is array: ${Array.isArray(data.calendar_events)}`);
-    console.log(`  - calendar_events length: ${data.calendar_events?.length || 0}`);
+    logger.debug('📊 Record metadata:');
+    logger.info('- date:', { date: data.date });
+    logger.info('- created_at:', { created_at: data.created_at });
+    logger.info('- updated_at:', { updated_at: data.updated_at });
+    logger.info('- calendar_events type:', { calendar_events: typeof data.calendar_events });
+    logger.info('- calendar_events is array:', { calendar_events): Array.isArray(data.calendar_events) });
+    logger.info('- calendar_events length:', { length || 0: data.calendar_events?.length || 0 });
 
     if (data.calendar_events && data.calendar_events.length > 0) {
-      console.log('\n📋 First event raw:');
+      logger.info('\n📋 First event raw:');
       const firstEvent = data.calendar_events[0];
-      console.log(JSON.stringify(firstEvent, null, 2));
+      logger.info(JSON.stringify(firstEvent, { arg0: null });
 
-      console.log('\n📋 First event keys:', Object.keys(firstEvent));
-      console.log(`    - Has 'summary': ${firstEvent.hasOwnProperty('summary')}`);
-      console.log(`    - summary value: ${firstEvent.summary}`);
-      console.log(`    - Has 'start': ${firstEvent.hasOwnProperty('start')}`);
-      console.log(`    - start value:`, firstEvent.start);
+      logger.info('\n📋 First event keys:');
+      logger.info('- Has 'summary':', { hasOwnProperty('summary'): firstEvent.hasOwnProperty('summary') });
+      logger.info('- summary value:', { summary: firstEvent.summary });
+      logger.info('- Has 'start':', { hasOwnProperty('start'): firstEvent.hasOwnProperty('start') });
+      logger.info('- start value:');
 
       // Check if events have wrong structure
       if (!firstEvent.hasOwnProperty('summary')) {
-        console.log('\n⚠️  Events missing "summary" field!');
-        console.log('    This suggests data structure corruption.');
+        logger.warn('\n⚠️  Events missing "summary" field!');
+        logger.info('    This suggests data structure corruption.');
       }
 
       // Look for alternative field names
-      console.log('\n🔍 Checking for alternative field names:');
+      logger.debug('\n🔍 Checking for alternative field names:');
       ['subject', 'title', 'name'].forEach(field => {
         if (firstEvent.hasOwnProperty(field)) {
-          console.log(`    ✅ Found "${field}": ${firstEvent[field]}`);
+          logger.info('✅ Found "":', { field: field, firstEvent[field]: firstEvent[field] });
         }
       });
     }
 
   } catch (err) {
-    console.error('❌ Exception:', err);
+    logger.error('❌ Exception:', { arg0: err });
   }
 
   process.exit(0);

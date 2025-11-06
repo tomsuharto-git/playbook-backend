@@ -1,3 +1,5 @@
+const logger = require('../../utils/logger');
+
 const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config();
 
@@ -96,8 +98,8 @@ async function extractProjectFromPath(filepath) {
 }
 
 async function backfillProjectMappings() {
-  console.log('\n🔄 Backfilling Project Mappings for Existing Meeting Notes\n');
-  console.log('='.repeat(70));
+  logger.info('\n🔄 Backfilling Project Mappings for Existing Meeting Notes\n');
+  logger.info('='.repeat(70));
 
   // Load projects cache
   const { data: projects } = await supabase
@@ -106,7 +108,7 @@ async function backfillProjectMappings() {
     .eq('status', 'active');
 
   projectsCache = projects || [];
-  console.log(`\n📊 Loaded ${projectsCache.length} active projects\n`);
+  logger.debug('\n📊 Loaded  active projects\n', { length: projectsCache.length });
 
   // Get all meeting notes (with or without project mapping)
   const { data: notes } = await supabase
@@ -114,7 +116,7 @@ async function backfillProjectMappings() {
     .select('id, file_path, project_id, title')
     .order('created_at', { ascending: false });
 
-  console.log(`📝 Found ${notes.length} total meeting notes\n`);
+  logger.debug('📝 Found  total meeting notes\n', { length: notes.length });
 
   let updatedCount = 0;
   let alreadyMappedCount = 0;
@@ -145,7 +147,7 @@ async function backfillProjectMappings() {
           .update({ project_id: project.id })
           .eq('id', note.id);
 
-        console.log(`✅ Mapped: ${note.title} → ${project.name}`);
+        logger.info('✅ Mapped:  →', { title: note.title, name: project.name });
         updatedCount++;
       } else if (note.project_id !== project.id) {
         // Fix incorrect mapping
@@ -160,8 +162,8 @@ async function backfillProjectMappings() {
           .update({ project_id: project.id })
           .eq('id', note.id);
 
-        console.log(`🔄 Remapped: ${note.title}`);
-        console.log(`   ${oldProject?.name || 'Unknown'} → ${project.name}`);
+        logger.info('🔄 Remapped:', { title: note.title });
+        logger.info('→', { name || 'Unknown': oldProject?.name || 'Unknown', name: project.name });
         updatedCount++;
       } else {
         // Already correctly mapped
@@ -172,22 +174,22 @@ async function backfillProjectMappings() {
       if (!note.project_id) {
         const pathParts = note.file_path.split('/');
         const relevantPath = pathParts.slice(-3).join('/');
-        console.log(`❌ Still unmapped: ${relevantPath}`);
+        logger.error('❌ Still unmapped:', { relevantPath: relevantPath });
         stillUnmappedCount++;
       }
     }
   }
 
-  console.log('\n' + '='.repeat(70));
-  console.log('\n📈 Backfill Summary:\n');
-  console.log(`Total notes processed: ${notes.length}`);
-  console.log(`Newly mapped: ${updatedCount}`);
-  console.log(`Already mapped correctly: ${alreadyMappedCount}`);
-  console.log(`Still unmapped: ${stillUnmappedCount}`);
-  console.log(`Skipped (technical files): ${skippedCount}`);
-  console.log(`\nMapping accuracy: ${Math.round((updatedCount + alreadyMappedCount) / (notes.length - skippedCount) * 100)}%`);
+  logger.info('\n' + '='.repeat(70));
+  logger.info('\n📈 Backfill Summary:\n');
+  logger.info('Total notes processed:', { length: notes.length });
+  logger.info('Newly mapped:', { updatedCount: updatedCount });
+  logger.info('Already mapped correctly:', { alreadyMappedCount: alreadyMappedCount });
+  logger.info('Still unmapped:', { stillUnmappedCount: stillUnmappedCount });
+  logger.info('Skipped (technical files):', { skippedCount: skippedCount });
+  logger.info('\nMapping accuracy: %', { length - skippedCount) * 100): Math.round((updatedCount + alreadyMappedCount) / (notes.length - skippedCount) * 100) });
 
-  console.log('\n✨ Backfill complete!\n');
+  logger.info('\n✨ Backfill complete!\n');
 }
 
 backfillProjectMappings();

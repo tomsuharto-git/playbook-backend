@@ -1,3 +1,5 @@
+const logger = require('../utils/logger');
+
 /**
  * Fix Today's Missing Briefings
  * Deletes today's cached briefings so they regenerate with briefings
@@ -12,7 +14,7 @@ async function fixTodaysBriefings() {
   });
   const todayET = etFormatter.format(new Date());
 
-  console.log(`\n🔧 Fixing briefings for ${todayET}...`);
+  logger.info('\n🔧 Fixing briefings for ...', { todayET: todayET });
 
   try {
     // Delete today's entry from daily_briefs
@@ -22,16 +24,16 @@ async function fixTodaysBriefings() {
       .eq('date', todayET);
 
     if (error) {
-      console.error('❌ Error deleting:', error);
+      logger.error('❌ Error deleting:', { arg0: error });
       return;
     }
 
-    console.log('✅ Deleted cached entry for today');
-    console.log('💡 Briefings will regenerate on next job run (6pm ET)');
-    console.log('   Or restart the backend server to trigger immediate generation');
+    logger.info('✅ Deleted cached entry for today');
+    logger.info('💡 Briefings will regenerate on next job run (6pm ET)');
+    logger.info('   Or restart the backend server to trigger immediate generation');
 
   } catch (err) {
-    console.error('❌ Error:', err);
+    logger.error('❌ Error:', { arg0: err });
   }
 }
 

@@ -6,6 +6,7 @@
  */
 
 const Anthropic = require('@anthropic-ai/sdk');
+const logger = require('../utils/logger').service('claude-podcast-writer');
 
 class ClaudePodcastWriter {
   constructor() {
@@ -353,7 +354,7 @@ NOTICE:
 
 Write the full script now:`;
 
-    console.log('   🤖 Asking Claude to write podcast script...');
+    logger.info('   🤖 Asking Claude to write podcast script...');
 
     const response = await this.anthropic.messages.create({
       model: 'claude-haiku-4-5',
@@ -377,10 +378,10 @@ Write the full script now:`;
         .trim();
 
       dialogue = JSON.parse(cleanedText);
-      console.log(`   ✅ Script generated: ${dialogue.length} dialogue exchanges`);
+      logger.info('✅ Script generated:  dialogue exchanges', { length: dialogue.length });
     } catch (error) {
-      console.error('   ❌ Failed to parse dialogue JSON:', error.message);
-      console.error('   Raw response:', scriptText.substring(0, 500));
+      logger.error('   ❌ Failed to parse dialogue JSON:', { arg0: error.message });
+      logger.error('   Raw response:');
       throw new Error('Failed to parse Claude script response');
     }
 

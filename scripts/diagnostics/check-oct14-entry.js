@@ -1,3 +1,5 @@
+const logger = require('../../utils/logger');
+
 const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config();
 
@@ -7,7 +9,7 @@ const supabase = createClient(
 );
 
 async function checkOct14Entry() {
-  console.log('\n📋 Checking Oct 14 Creative Development Progress entry...\n');
+  logger.info('\n📋 Checking Oct 14 Creative Development Progress entry...\n');
 
   const { data: note } = await supabase
     .from('meeting_notes')
@@ -16,10 +18,10 @@ async function checkOct14Entry() {
     .single();
 
   if (note) {
-    console.log('Full entry:');
-    console.log(JSON.stringify(note, null, 2));
+    logger.info('Full entry:');
+    logger.info(JSON.stringify(note, { arg0: null });
   } else {
-    console.log('Entry not found');
+    logger.info('Entry not found');
   }
 }
 

@@ -1,8 +1,10 @@
+const logger = require('../../utils/logger');
+
 require('dotenv').config();
 const { supabase } = require('./db/supabase-client');
 
 async function checkBriefing() {
-  console.log('🔍 Checking if briefings include narrative context...\n');
+  logger.debug('🔍 Checking if briefings include narrative context...\n');
 
   // Get today's briefings
   const { data, error } = await supabase
@@ -12,7 +14,7 @@ async function checkBriefing() {
     .single();
 
   if (error || !data) {
-    console.error('No briefings found:', error?.message);
+    logger.error('No briefings found:');
     return;
   }
 
@@ -21,15 +23,15 @@ async function checkBriefing() {
     ['Baileys', 'ITA Airlines', 'Therabody', '72andSunny', 'Nuveen', 'TIAA'].includes(e.project_name)
   );
 
-  console.log(`Found ${eventsWithProjects.length} events with narrative-rich projects\n`);
+  logger.info('Found  events with narrative-rich projects\n', { length: eventsWithProjects.length });
 
   eventsWithProjects.forEach(event => {
-    console.log(`📅 ${event.summary}`);
-    console.log(`   Project: ${event.project_name}`);
-    console.log(`   Has briefing: ${event.ai_briefing ? 'YES' : 'NO'}`);
+    logger.info('📅', { summary: event.summary });
+    logger.info('Project:', { project_name: event.project_name });
+    logger.info('Has briefing:', { ai_briefing ? 'YES' : 'NO': event.ai_briefing ? 'YES' : 'NO' });
     if (event.ai_briefing) {
       const briefingPreview = event.ai_briefing.substring(0, 600);
-      console.log(`   Briefing preview:\n${briefingPreview}...\n`);
+      logger.info('Briefing preview:\n...\n', { briefingPreview: briefingPreview });
     }
   });
 }

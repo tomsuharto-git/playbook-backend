@@ -1,4 +1,6 @@
 // Detailed analysis for migrating calendar_events to events (Phase 2)
+const logger = require('../../utils/logger');
+
 const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config();
 
@@ -8,8 +10,8 @@ const supabase = createClient(
 );
 
 async function analyzeEventMigration() {
-  console.log('\n🔬 DETAILED MIGRATION ANALYSIS\n');
-  console.log('='.repeat(80));
+  logger.info('\n🔬 DETAILED MIGRATION ANALYSIS\n');
+  logger.info('='.repeat(80));
 
   try {
     // Get all data from both tables
@@ -23,19 +25,19 @@ async function analyzeEventMigration() {
       .select('*')
       .order('created_at', { ascending: true });
 
-    console.log('\n📊 DATA SUMMARY');
-    console.log('-'.repeat(80));
-    console.log(`calendar_events: ${calendarEvents?.length || 0} records`);
-    console.log(`events:          ${events?.length || 0} records`);
+    logger.debug('\n📊 DATA SUMMARY');
+    logger.info('-'.repeat(80));
+    logger.info('calendar_events:  records', { length || 0: calendarEvents?.length || 0 });
+    logger.info('events:           records', { length || 0: events?.length || 0 });
 
     if (!calendarEvents || !events) {
-      console.log('❌ Could not fetch data from one or both tables');
+      logger.error('❌ Could not fetch data from one or both tables');
       return;
     }
 
     // 1. Analyze time distribution
-    console.log('\n📅 TIME DISTRIBUTION');
-    console.log('-'.repeat(80));
+    logger.info('\n📅 TIME DISTRIBUTION');
+    logger.info('-'.repeat(80));
 
     // Parse dates from calendar_events (handles both dateTime and date formats)
     const calendarDates = calendarEvents
@@ -53,22 +55,22 @@ async function analyzeEventMigration() {
     if (calendarDates.length > 0) {
       const calMin = new Date(Math.min(...calendarDates));
       const calMax = new Date(Math.max(...calendarDates));
-      console.log(`\ncalendar_events event date range:`);
-      console.log(`  Earliest: ${calMin.toISOString().split('T')[0]}`);
-      console.log(`  Latest:   ${calMax.toISOString().split('T')[0]}`);
+      logger.info('\ncalendar_events event date range:');
+      logger.info('Earliest:', { split('T')[0]: calMin.toISOString().split('T')[0] });
+      logger.info('Latest:', { split('T')[0]: calMax.toISOString().split('T')[0] });
     }
 
     if (eventDates.length > 0) {
       const evMin = new Date(Math.min(...eventDates));
       const evMax = new Date(Math.max(...eventDates));
-      console.log(`\nevents event date range:`);
-      console.log(`  Earliest: ${evMin.toISOString().split('T')[0]}`);
-      console.log(`  Latest:   ${evMax.toISOString().split('T')[0]}`);
+      logger.info('\nevents event date range:');
+      logger.info('Earliest:', { split('T')[0]: evMin.toISOString().split('T')[0] });
+      logger.info('Latest:', { split('T')[0]: evMax.toISOString().split('T')[0] });
     }
 
     // 2. Analyze sources/categories
-    console.log('\n🔍 DATA SOURCES');
-    console.log('-'.repeat(80));
+    logger.debug('\n🔍 DATA SOURCES');
+    logger.info('-'.repeat(80));
 
     const calendarSources = {};
     calendarEvents.forEach(e => {
@@ -76,9 +78,9 @@ async function analyzeEventMigration() {
       calendarSources[source] = (calendarSources[source] || 0) + 1;
     });
 
-    console.log('\ncalendar_events by source:');
+    logger.info('\ncalendar_events by source:');
     Object.entries(calendarSources).forEach(([source, count]) => {
-      console.log(`  ${source}: ${count} events`);
+      logger.info(':  events', { source: source, count: count });
     });
 
     const eventSources = {};
@@ -87,14 +89,14 @@ async function analyzeEventMigration() {
       eventSources[source] = (eventSources[source] || 0) + 1;
     });
 
-    console.log('\nevents by calendar_source:');
+    logger.info('\nevents by calendar_source:');
     Object.entries(eventSources).forEach(([source, count]) => {
-      console.log(`  ${source}: ${count} events`);
+      logger.info(':  events', { source: source, count: count });
     });
 
     // 3. Check for title/summary overlap
-    console.log('\n🔗 CONTENT OVERLAP ANALYSIS');
-    console.log('-'.repeat(80));
+    logger.info('\n🔗 CONTENT OVERLAP ANALYSIS');
+    logger.info('-'.repeat(80));
 
     const calendarTitles = new Set(calendarEvents.map(e => e.summary?.toLowerCase().trim()));
     const eventTitles = new Set(events.map(e => e.title?.toLowerCase().trim()));
@@ -111,44 +113,44 @@ async function analyzeEventMigration() {
       }
     });
 
-    console.log(`\nTitle matches: ${matchCount} out of ${calendarEvents.length} calendar_events`);
-    console.log(`Match rate: ${Math.round(matchCount / calendarEvents.length * 100)}%`);
+    logger.info('\nTitle matches:  out of  calendar_events', { matchCount: matchCount, length: calendarEvents.length });
+    logger.info('Match rate: %', { length * 100): Math.round(matchCount / calendarEvents.length * 100) });
 
     if (matchedTitles.length > 0) {
-      console.log('\nSample matching titles:');
-      matchedTitles.forEach(title => console.log(`  - ${title}`));
+      logger.info('\nSample matching titles:');
+      matchedTitles.forEach(title => logger.info('-', { title: title });
     }
 
     // 4. Compare project associations
-    console.log('\n📂 PROJECT ASSOCIATIONS');
-    console.log('-'.repeat(80));
+    logger.info('\n📂 PROJECT ASSOCIATIONS');
+    logger.info('-'.repeat(80));
 
     const calendarWithProjects = calendarEvents.filter(e => e.project_id).length;
     const eventsWithProjects = events.filter(e => e.project_id).length;
 
-    console.log(`\ncalendar_events with project_id: ${calendarWithProjects}/${calendarEvents.length} (${Math.round(calendarWithProjects/calendarEvents.length*100)}%)`);
-    console.log(`events with project_id:          ${eventsWithProjects}/${events.length} (${Math.round(eventsWithProjects/events.length*100)}%)`);
+    logger.info('\ncalendar_events with project_id: / (%)', { calendarWithProjects: calendarWithProjects, length: calendarEvents.length, length*100): Math.round(calendarWithProjects/calendarEvents.length*100) });
+    logger.info('events with project_id:          / (%)', { eventsWithProjects: eventsWithProjects, length: events.length, length*100): Math.round(eventsWithProjects/events.length*100) });
 
     // 5. Identify unique characteristics
-    console.log('\n🎯 KEY DIFFERENCES');
-    console.log('-'.repeat(80));
+    logger.info('\n🎯 KEY DIFFERENCES');
+    logger.info('-'.repeat(80));
 
-    console.log('\ncalendar_events unique features:');
-    console.log('  - Has enriched_attendees field');
-    console.log('  - Has project_name, project_color, project_work_life_context');
-    console.log('  - Has calendar_category field');
-    console.log('  - Has ai_briefing field');
-    console.log(`  - Uses complex start/end objects: ${JSON.stringify(calendarEvents[0]?.start)}`);
+    logger.info('\ncalendar_events unique features:');
+    logger.info('  - Has enriched_attendees field');
+    logger.info('  - Has project_name, project_color, project_work_life_context');
+    logger.info('  - Has calendar_category field');
+    logger.info('  - Has ai_briefing field');
+    logger.info('- Uses complex start/end objects:', { start): JSON.stringify(calendarEvents[0]?.start) });
 
-    console.log('\nevents unique features:');
-    console.log('  - Has briefing and briefing_type fields');
-    console.log('  - Has category field (different from calendar_category)');
-    console.log('  - Uses simple timestamp fields for start_time/end_time');
-    console.log('  - Attendees stored as JSON with enriched LinkedIn data');
+    logger.info('\nevents unique features:');
+    logger.info('  - Has briefing and briefing_type fields');
+    logger.info('  - Has category field (different from calendar_category)');
+    logger.info('  - Uses simple timestamp fields for start_time/end_time');
+    logger.info('  - Attendees stored as JSON with enriched LinkedIn data');
 
     // 6. Check for recent vs historical data
-    console.log('\n⏰ RECENCY ANALYSIS');
-    console.log('-'.repeat(80));
+    logger.info('\n⏰ RECENCY ANALYSIS');
+    logger.info('-'.repeat(80));
 
     const now = new Date();
     const futureCalendar = calendarEvents.filter(e => {
@@ -162,47 +164,47 @@ async function analyzeEventMigration() {
       return date && date > now;
     }).length;
 
-    console.log(`\ncalendar_events:`);
-    console.log(`  Future events:     ${futureCalendar}`);
-    console.log(`  Past/current:      ${calendarEvents.length - futureCalendar}`);
+    logger.info('\ncalendar_events:');
+    logger.info('Future events:', { futureCalendar: futureCalendar });
+    logger.info('Past/current:', { length - futureCalendar: calendarEvents.length - futureCalendar });
 
-    console.log(`\nevents:`);
-    console.log(`  Future events:     ${futureEvents}`);
-    console.log(`  Past/current:      ${events.length - futureEvents}`);
+    logger.info('\nevents:');
+    logger.info('Future events:', { futureEvents: futureEvents });
+    logger.info('Past/current:', { length - futureEvents: events.length - futureEvents });
 
     // 7. Migration recommendation
-    console.log('\n💡 MIGRATION RECOMMENDATION');
-    console.log('-'.repeat(80));
+    logger.info('\n💡 MIGRATION RECOMMENDATION');
+    logger.info('-'.repeat(80));
 
-    console.log('\nBased on the analysis:');
+    logger.info('\nBased on the analysis:');
 
     if (matchCount / calendarEvents.length < 0.1) {
-      console.log('\n✅ Tables contain DIFFERENT data sets');
-      console.log('   → calendar_events appears to be current/future events');
-      console.log('   → events appears to be historical + enriched events');
-      console.log('   → RECOMMENDATION: Keep both tables but update routes');
+      logger.info('\n✅ Tables contain DIFFERENT data sets');
+      logger.info('   → calendar_events appears to be current/future events');
+      logger.info('   → events appears to be historical + enriched events');
+      logger.info('   → RECOMMENDATION: Keep both tables but update routes');
     } else {
-      console.log('\n⚠️  Tables have significant overlap');
-      console.log('   → Some events exist in both tables');
-      console.log('   → RECOMMENDATION: Consolidate and migrate missing events');
+      logger.warn('\n⚠️  Tables have significant overlap');
+      logger.info('   → Some events exist in both tables');
+      logger.info('   → RECOMMENDATION: Consolidate and migrate missing events');
     }
 
-    console.log('\nSuggested migration path:');
-    console.log('1. Create migration script to copy calendar_events → events');
-    console.log('2. Map fields correctly:');
-    console.log('   - summary → title');
-    console.log('   - start/end objects → start_time/end_time timestamps');
-    console.log('   - external_id → keep as reference');
-    console.log('   - source → calendar_source');
-    console.log('3. Update backend/routes/calendar.js to query "events"');
-    console.log('4. Test with both tables in parallel');
-    console.log('5. Deprecate calendar_events once verified');
+    logger.info('\nSuggested migration path:');
+    logger.info('1. Create migration script to copy calendar_events → events');
+    logger.info('2. Map fields correctly:');
+    logger.info('   - summary → title');
+    logger.info('   - start/end objects → start_time/end_time timestamps');
+    logger.info('   - external_id → keep as reference');
+    logger.info('   - source → calendar_source');
+    logger.info('3. Update backend/routes/calendar.js to query "events"');
+    logger.info('4. Test with both tables in parallel');
+    logger.info('5. Deprecate calendar_events once verified');
 
-    console.log('\n='.repeat(80));
-    console.log('✅ Analysis complete!\n');
+    logger.info('\n='.repeat(80));
+    logger.info('✅ Analysis complete!\n');
 
   } catch (error) {
-    console.error('❌ Error during analysis:', error);
+    logger.error('❌ Error during analysis:', { arg0: error });
   }
 }
 

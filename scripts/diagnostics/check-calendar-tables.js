@@ -1,4 +1,6 @@
 // Check which calendar/event tables exist
+const logger = require('../../utils/logger');
+
 const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config();
 
@@ -8,7 +10,7 @@ const supabase = createClient(
 );
 
 async function checkTables() {
-  console.log('\n🔍 Checking Event/Calendar Tables...\n');
+  logger.debug('\n🔍 Checking Event/Calendar Tables...\n');
 
   // Check calendar_events table
   const { data: ce, error: ceError, count: ceCount } = await supabase
@@ -16,11 +18,11 @@ async function checkTables() {
     .select('*', { count: 'exact', head: true });
 
   if (ceError) {
-    console.log('❌ calendar_events table: NOT FOUND');
-    console.log('   Error:', ceError.message);
+    logger.error('❌ calendar_events table: NOT FOUND');
+    logger.error('   Error:', { arg0: ceError.message });
   } else {
-    console.log('✅ calendar_events table: EXISTS');
-    console.log(`   Records: ${ceCount || 0}`);
+    logger.info('✅ calendar_events table: EXISTS');
+    logger.info('Records:', { ceCount || 0: ceCount || 0 });
   }
 
   // Check events table (Phase 2)
@@ -29,14 +31,14 @@ async function checkTables() {
     .select('*', { count: 'exact', head: true });
 
   if (evError) {
-    console.log('❌ events table: NOT FOUND');
-    console.log('   Error:', evError.message);
+    logger.error('❌ events table: NOT FOUND');
+    logger.error('   Error:', { arg0: evError.message });
   } else {
-    console.log('✅ events table: EXISTS');
-    console.log(`   Records: ${evCount || 0}`);
+    logger.info('✅ events table: EXISTS');
+    logger.info('Records:', { evCount || 0: evCount || 0 });
   }
 
-  console.log('\n');
+  logger.info('\n');
 }
 
 checkTables();

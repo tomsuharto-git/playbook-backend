@@ -1,3 +1,5 @@
+const logger = require('../../utils/logger');
+
 /**
  * Comprehensive cleanup of all false-positive tasks from Get Smart and strategic documentation
  */
@@ -5,7 +7,7 @@
 const { supabase } = require('./db/supabase-client');
 
 async function cleanupAllStrategicDocTasks() {
-  console.log('\n🧹 Comprehensive cleanup of strategic documentation false-positive tasks...\n');
+  logger.info('\n🧹 Comprehensive cleanup of strategic documentation false-positive tasks...\n');
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -19,7 +21,7 @@ async function cleanupAllStrategicDocTasks() {
     .gte('created_at', today.toISOString());
 
   if (error) {
-    console.error('❌ Error fetching tasks:', error);
+    logger.error('❌ Error fetching tasks:', { arg0: error });
     return;
   }
 
@@ -34,10 +36,10 @@ async function cleanupAllStrategicDocTasks() {
            path.includes('TEMPLATE');
   });
 
-  console.log(`📊 Found ${strategicDocTasks.length} pending tasks from strategic documentation created today\n`);
+  logger.debug('📊 Found  pending tasks from strategic documentation created today\n', { length: strategicDocTasks.length });
 
   if (strategicDocTasks.length === 0) {
-    console.log('✅ No tasks to clean up');
+    logger.info('✅ No tasks to clean up');
     return;
   }
 
@@ -52,15 +54,15 @@ async function cleanupAllStrategicDocTasks() {
     tasksByFolder[folder].push(task);
   });
 
-  console.log('📁 Tasks by folder:');
-  console.log('─'.repeat(80));
+  logger.info('📁 Tasks by folder:');
+  logger.info('─'.repeat(80));
   Object.entries(tasksByFolder)
     .sort((a, b) => b[1].length - a[1].length)
     .forEach(([folder, folderTasks]) => {
       const count = folderTasks.length.toString().padStart(3);
-      console.log(`  ${count} tasks | ${folder}`);
+      logger.info('tasks |', { count: count, folder: folder });
     });
-  console.log();
+  logger.info();
 
   // Dismiss all strategic doc tasks
   const taskIds = strategicDocTasks.map(t => t.id);
@@ -73,27 +75,29 @@ async function cleanupAllStrategicDocTasks() {
     .in('id', taskIds);
 
   if (updateError) {
-    console.error('❌ Error dismissing tasks:', updateError);
+    logger.error('❌ Error dismissing tasks:', { arg0: updateError });
     return;
   }
 
-  console.log('═'.repeat(80));
-  console.log(`✅ Successfully dismissed ${taskIds.length} false-positive tasks`);
-  console.log();
-  console.log('📝 Root Cause Analysis:');
-  console.log(`   - Tasks were created via manual API (/api/tasks POST) with auto_detected: false`);
-  console.log(`   - Source: Get Smart strategic briefs and deployment documentation`);
-  console.log(`   - These files contain instructional content for Claude, not personal actions for Tom`);
-  console.log();
-  console.log('✅ Existing Protections:');
-  console.log(`   - Vault watcher already excludes /Get Smart/ folder (vault-watcher.js:132-135)`);
-  console.log(`   - Auto-detection will NOT create tasks from these files`);
-  console.log();
-  console.log('⚠️  Prevention:');
-  console.log(`   - These tasks were likely created during a Claude Code session`);
-  console.log(`   - Avoid manually extracting tasks from strategic/instructional documents`);
-  console.log(`   - Only create tasks from actual meeting notes and work sessions`);
-  console.log();
+  logger.info('═'.repeat(80));
+  logger.info('✅ Successfully dismissed  false-positive tasks', { length: taskIds.length });
+  logger.info();
+  logger.debug('📝 Root Cause Analysis:');
+  logger.info('- Tasks were created via manual API (/api/tasks POST) with auto_detected: false');
+  logger.info('- Source: Get Smart strategic briefs and deployment documentation');
+  logger.info('- These files contain instructional content for Claude, not personal actions for Tom');
+  logger.info();
+  logger.info('✅ Existing Protections:');
+  logger.info('- Vault watcher already excludes /Get Smart/ folder (vault-watcher.js:132-135)');
+  logger.info('- Auto-detection will NOT create tasks from these files');
+  logger.info();
+  logger.warn('⚠️  Prevention:');
+  logger.info('- These tasks were likely created during a Claude Code session');
+  logger.info('- Avoid manually extracting tasks from strategic/instructional documents');
+  logger.info('- Only create tasks from actual meeting notes and work sessions');
+  logger.info();
 }
 
-cleanupAllStrategicDocTasks().catch(console.error);
+cleanupAllStrategicDocTasks().catch(error => {
+  logger.error('❌ Script failed', { error: error.message, stack: error.stack });
+});

@@ -5,12 +5,13 @@
  */
 
 const Anthropic = require('@anthropic-ai/sdk');
+const logger = require('../utils/logger').job('analyze-task-patterns');
 const { supabase } = require('../db/supabase-client');
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 async function analyzeTaskPatterns() {
-  console.log('🧠 [TASK LEARNING] Starting pattern analysis...');
+  logger.info('🧠 [TASK LEARNING] Starting pattern analysis...');
 
   try {
     // Fetch recent approved tasks (auto-detected only)
@@ -33,11 +34,11 @@ async function analyzeTaskPatterns() {
       .order('dismissed_at', { ascending: false })
       .limit(50);
 
-    console.log(`   Found ${approvedTasks?.length || 0} approved tasks`);
-    console.log(`   Found ${dismissedTasks?.length || 0} dismissed tasks`);
+    logger.info('Found  approved tasks', { length || 0: approvedTasks?.length || 0 });
+    logger.info('Found  dismissed tasks', { length || 0: dismissedTasks?.length || 0 });
 
     if (!approvedTasks?.length && !dismissedTasks?.length) {
-      console.log('   ⚠️  Not enough data to analyze patterns yet');
+      logger.warn('   ⚠️  Not enough data to analyze patterns yet');
       return { patterns: [], message: 'Insufficient data' };
     }
 
@@ -47,12 +48,12 @@ async function analyzeTaskPatterns() {
     // Store patterns in database
     await storePatterns(patterns);
 
-    console.log(`   ✅ Learned ${patterns.length} patterns`);
+    logger.info('✅ Learned  patterns', { length: patterns.length });
 
     return { patterns, success: true };
 
   } catch (error) {
-    console.error('   ❌ Pattern analysis failed:', error.message);
+    logger.error('   ❌ Pattern analysis failed:', { arg0: error.message });
     return { patterns: [], error: error.message };
   }
 }
@@ -152,7 +153,7 @@ async function storePatterns(patterns) {
     .insert(patterns);
 
   if (error) {
-    console.error('   ⚠️  Error storing patterns:', error.message);
+    logger.error('   ⚠️  Error storing patterns:', { arg0: error.message });
   }
 }
 
@@ -174,18 +175,18 @@ function startPatternLearningSchedule() {
 
   // Run every Sunday at 3:00 AM ET
   cron.schedule('0 3 * * 0', async () => {
-    console.log('\n⏰ [WEEKLY] Pattern learning triggered');
+    logger.info('\n⏰ [WEEKLY] Pattern learning triggered');
     try {
       const result = await analyzeTaskPatterns();
-      console.log(`✅ [WEEKLY] Learned ${result.patterns?.length || 0} patterns`);
+      logger.info('✅ [WEEKLY] Learned  patterns', { length || 0: result.patterns?.length || 0 });
     } catch (error) {
-      console.error('❌ [WEEKLY] Pattern learning failed:', error.message);
+      logger.error('❌ [WEEKLY] Pattern learning failed:', { arg0: error.message });
     }
   }, {
     timezone: 'America/New_York'
   });
 
-  console.log('⏰ Task pattern learning scheduled (Sundays at 3 AM ET)');
+  logger.info('⏰ Task pattern learning scheduled (Sundays at 3 AM ET)');
 }
 
 module.exports = {

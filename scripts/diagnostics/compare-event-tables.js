@@ -1,4 +1,6 @@
 // Compare calendar_events (old) vs events (Phase 2) tables
+const logger = require('../../utils/logger');
+
 const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config();
 
@@ -8,13 +10,13 @@ const supabase = createClient(
 );
 
 async function compareEventTables() {
-  console.log('\n🔍 Comparing calendar_events vs events tables\n');
-  console.log('='.repeat(80));
+  logger.debug('\n🔍 Comparing calendar_events vs events tables\n');
+  logger.info('='.repeat(80));
 
   try {
     // 1. Get record counts
-    console.log('\n📊 RECORD COUNTS');
-    console.log('-'.repeat(80));
+    logger.debug('\n📊 RECORD COUNTS');
+    logger.info('-'.repeat(80));
 
     const { count: calendarCount } = await supabase
       .from('calendar_events')
@@ -24,13 +26,13 @@ async function compareEventTables() {
       .from('events')
       .select('*', { count: 'exact', head: true });
 
-    console.log(`calendar_events: ${calendarCount} records`);
-    console.log(`events:          ${eventsCount} records`);
-    console.log(`Difference:      ${calendarCount - eventsCount} records (${Math.round((calendarCount - eventsCount) / calendarCount * 100)}%)`);
+    logger.info('calendar_events:  records', { calendarCount: calendarCount });
+    logger.info('events:           records', { eventsCount: eventsCount });
+    logger.info('Difference:       records (%)', { calendarCount - eventsCount: calendarCount - eventsCount, round((calendarCount - eventsCount) / calendarCount * 100): Math.round((calendarCount - eventsCount) / calendarCount * 100) });
 
     // 2. Sample records from calendar_events
-    console.log('\n📋 SAMPLE: calendar_events (first 3 records)');
-    console.log('-'.repeat(80));
+    logger.info('\n📋 SAMPLE: calendar_events (first 3 records)');
+    logger.info('-'.repeat(80));
 
     const { data: calendarSample } = await supabase
       .from('calendar_events')
@@ -38,15 +40,15 @@ async function compareEventTables() {
       .limit(3);
 
     if (calendarSample && calendarSample.length > 0) {
-      console.log('\nColumns in calendar_events:');
-      console.log(Object.keys(calendarSample[0]).join(', '));
-      console.log('\nSample record:');
-      console.log(JSON.stringify(calendarSample[0], null, 2));
+      logger.info('\nColumns in calendar_events:');
+      logger.info(Object.keys(calendarSample[0]).join(', '));
+      logger.info('\nSample record:');
+      logger.info(JSON.stringify(calendarSample[0], { arg0: null });
     }
 
     // 3. Sample records from events
-    console.log('\n📋 SAMPLE: events (first 3 records)');
-    console.log('-'.repeat(80));
+    logger.info('\n📋 SAMPLE: events (first 3 records)');
+    logger.info('-'.repeat(80));
 
     const { data: eventsSample } = await supabase
       .from('events')
@@ -54,15 +56,15 @@ async function compareEventTables() {
       .limit(3);
 
     if (eventsSample && eventsSample.length > 0) {
-      console.log('\nColumns in events:');
-      console.log(Object.keys(eventsSample[0]).join(', '));
-      console.log('\nSample record:');
-      console.log(JSON.stringify(eventsSample[0], null, 2));
+      logger.info('\nColumns in events:');
+      logger.info(Object.keys(eventsSample[0]).join(', '));
+      logger.info('\nSample record:');
+      logger.info(JSON.stringify(eventsSample[0], { arg0: null });
     }
 
     // 4. Check for external_id overlap
-    console.log('\n🔗 EXTERNAL ID OVERLAP ANALYSIS');
-    console.log('-'.repeat(80));
+    logger.info('\n🔗 EXTERNAL ID OVERLAP ANALYSIS');
+    logger.info('-'.repeat(80));
 
     const { data: calendarIds } = await supabase
       .from('calendar_events')
@@ -82,29 +84,29 @@ async function compareEventTables() {
       // Find events in events but NOT in calendar_events
       const onlyInEvents = eventsIds.filter(e => !calendarExternalIds.has(e.external_event_id));
 
-      console.log(`\nEvents in calendar_events: ${calendarExternalIds.size} unique external_ids`);
-      console.log(`Events in events:          ${eventsExternalIds.size} unique external_event_ids`);
-      console.log(`\nOnly in calendar_events:   ${onlyInCalendar.length} events`);
-      console.log(`Only in events:            ${onlyInEvents.length} events`);
+      logger.info('\nEvents in calendar_events:  unique external_ids', { size: calendarExternalIds.size });
+      logger.info('Events in events:           unique external_event_ids', { size: eventsExternalIds.size });
+      logger.info('\nOnly in calendar_events:    events', { length: onlyInCalendar.length });
+      logger.info('Only in events:             events', { length: onlyInEvents.length });
 
       if (onlyInCalendar.length > 0) {
-        console.log('\n📌 Sample events ONLY in calendar_events (first 5):');
+        logger.info('\n📌 Sample events ONLY in calendar_events (first 5):');
         onlyInCalendar.slice(0, 5).forEach((e, i) => {
-          console.log(`  ${i + 1}. ${e.summary} (${e.start?.dateTime || e.start})`);
+          logger.info('.  ()', { i + 1: i + 1, summary: e.summary, start: e.start?.dateTime || e.start });
         });
       }
 
       if (onlyInEvents.length > 0) {
-        console.log('\n📌 Sample events ONLY in events (first 5):');
+        logger.info('\n📌 Sample events ONLY in events (first 5):');
         onlyInEvents.slice(0, 5).forEach((e, i) => {
-          console.log(`  ${i + 1}. ${e.title} (${e.start_time})`);
+          logger.info('.  ()', { i + 1: i + 1, title: e.title, start_time: e.start_time });
         });
       }
     }
 
     // 5. Date range comparison
-    console.log('\n📅 DATE RANGE COMPARISON');
-    console.log('-'.repeat(80));
+    logger.info('\n📅 DATE RANGE COMPARISON');
+    logger.info('-'.repeat(80));
 
     const { data: calendarDates } = await supabase
       .from('calendar_events')
@@ -119,59 +121,59 @@ async function compareEventTables() {
     if (calendarDates && calendarDates.length > 0) {
       const firstCalendar = calendarDates[0];
       const lastCalendar = calendarDates[calendarDates.length - 1];
-      console.log(`\ncalendar_events:`);
-      console.log(`  First event:   ${firstCalendar.start?.dateTime || firstCalendar.start}`);
-      console.log(`  Last event:    ${lastCalendar.start?.dateTime || lastCalendar.start}`);
-      console.log(`  First created: ${calendarDates[0].created_at}`);
+      logger.info('\ncalendar_events:');
+      logger.info('First event:', { start: firstCalendar.start?.dateTime || firstCalendar.start });
+      logger.info('Last event:', { start: lastCalendar.start?.dateTime || lastCalendar.start });
+      logger.info('First created:', { created_at: calendarDates[0].created_at });
     }
 
     if (eventsDates && eventsDates.length > 0) {
-      console.log(`\nevents:`);
-      console.log(`  First event:   ${eventsDates[0].start_time}`);
-      console.log(`  Last event:    ${eventsDates[eventsDates.length - 1].start_time}`);
-      console.log(`  First created: ${eventsDates[0].created_at}`);
+      logger.info('\nevents:');
+      logger.info('First event:', { start_time: eventsDates[0].start_time });
+      logger.info('Last event:', { start_time: eventsDates[eventsDates.length - 1].start_time });
+      logger.info('First created:', { created_at: eventsDates[0].created_at });
     }
 
     // 6. Schema differences summary
-    console.log('\n📐 SCHEMA DIFFERENCES SUMMARY');
-    console.log('-'.repeat(80));
+    logger.info('\n📐 SCHEMA DIFFERENCES SUMMARY');
+    logger.info('-'.repeat(80));
 
     if (calendarSample && calendarSample.length > 0 && eventsSample && eventsSample.length > 0) {
       const calendarCols = Object.keys(calendarSample[0]);
       const eventsCols = Object.keys(eventsSample[0]);
 
-      console.log('\nColumns only in calendar_events:');
+      logger.info('\nColumns only in calendar_events:');
       const onlyInCalendarCols = calendarCols.filter(col => !eventsCols.includes(col));
-      onlyInCalendarCols.forEach(col => console.log(`  - ${col}`));
+      onlyInCalendarCols.forEach(col => logger.info('-', { col: col });
 
-      console.log('\nColumns only in events:');
+      logger.info('\nColumns only in events:');
       const onlyInEventsCols = eventsCols.filter(col => !calendarCols.includes(col));
-      onlyInEventsCols.forEach(col => console.log(`  - ${col}`));
+      onlyInEventsCols.forEach(col => logger.info('-', { col: col });
 
-      console.log('\nCommon concept columns (may have different names):');
-      console.log('  calendar_events     →     events');
-      console.log('  ---------------           ------');
-      console.log('  external_id         →     external_event_id');
-      console.log('  summary             →     title');
-      console.log('  start               →     start_time');
-      console.log('  end                 →     end_time');
+      logger.info('\nCommon concept columns (may have different names):');
+      logger.info('  calendar_events     →     events');
+      logger.info('  ---------------           ------');
+      logger.info('  external_id         →     external_event_id');
+      logger.info('  summary             →     title');
+      logger.info('  start               →     start_time');
+      logger.info('  end                 →     end_time');
     }
 
     // 7. Recommendations
-    console.log('\n💡 MIGRATION RECOMMENDATIONS');
-    console.log('-'.repeat(80));
-    console.log('\nBased on the analysis above:');
-    console.log('1. Check if the missing events are historical or future');
-    console.log('2. Determine if calendar_events has data that needs to be preserved');
-    console.log('3. Update backend/routes/calendar.js to query from "events" instead');
-    console.log('4. Consider migrating missing events if they\'re important');
-    console.log('5. Once migration is verified, calendar_events can be deprecated');
+    logger.info('\n💡 MIGRATION RECOMMENDATIONS');
+    logger.info('-'.repeat(80));
+    logger.info('\nBased on the analysis above:');
+    logger.info('1. Check if the missing events are historical or future');
+    logger.info('2. Determine if calendar_events has data that needs to be preserved');
+    logger.info('3. Update backend/routes/calendar.js to query from "events" instead');
+    logger.info('4. Consider migrating missing events if they\'re important');
+    logger.info('5. Once migration is verified, calendar_events can be deprecated');
 
-    console.log('\n='.repeat(80));
-    console.log('✅ Comparison complete!\n');
+    logger.info('\n='.repeat(80));
+    logger.info('✅ Comparison complete!\n');
 
   } catch (error) {
-    console.error('❌ Error comparing tables:', error);
+    logger.error('❌ Error comparing tables:', { arg0: error });
   }
 }
 

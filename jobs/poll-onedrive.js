@@ -1,5 +1,6 @@
 const cron = require('node-cron');
 const axios = require('axios');
+const logger = require('../utils/logger').job('poll-onedrive');
 const { processCalendarData, processEmailData } = require('../services/data-processor');
 
 const FOLDER_LINK = 'https://forsmanbodenforsglobal-my.sharepoint.com/:f:/g/personal/tom_suharto_forsman_com/EjfvvdzNz6ZHghi_h_PNTpgBmOkxjU0ouAOUD1jEn1S9VQ?e=KzAfIN';
@@ -13,13 +14,13 @@ async function getFileFromFolder(filename) {
     const { data } = await axios.get(fileUrl);
     return data;
   } catch (error) {
-    console.error(`Failed to get ${filename}:`, error.message);
+    logger.error('Failed to get :', { filename: filename });
     return null;
   }
 }
 
 async function pollOneDrive() {
-  console.log('🔄 Polling OneDrive...');
+  logger.info('🔄 Polling OneDrive...');
   
   const today = new Date().toISOString().split('T')[0];
   
@@ -38,15 +39,15 @@ async function pollOneDrive() {
       await processEmailData(emailsData, today);
     }
     
-    console.log('✅ Polling complete');
+    logger.info('✅ Polling complete');
   } catch (error) {
-    console.error('❌ Polling error:', error.message);
+    logger.error('❌ Polling error:', { arg0: error.message });
   }
 }
 
 function startPolling() {
   cron.schedule('5 * * * *', pollOneDrive);
-  console.log('⏰ Polling scheduled (hourly at :05)');
+  logger.info('⏰ Polling scheduled (hourly at :05)');
   
   // Run once on startup for testing
   setTimeout(pollOneDrive, 5000);

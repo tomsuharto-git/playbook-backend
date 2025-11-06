@@ -5,6 +5,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const logger = require('../utils/logger');
 
 // Paths to credentials (in vault root)
 // From config/ -> backend/ -> ai-task-manager/ -> Obsidian Vault/
@@ -18,7 +19,7 @@ function getGoogleCalendarCredentials() {
     try {
       return JSON.parse(process.env.GOOGLE_CALENDAR_CREDENTIALS);
     } catch (error) {
-      console.error('Failed to parse GOOGLE_CALENDAR_CREDENTIALS:', error.message);
+      logger.error('Failed to parse GOOGLE_CALENDAR_CREDENTIALS:', { arg0: error.message });
       throw error;
     }
   }
@@ -27,7 +28,7 @@ function getGoogleCalendarCredentials() {
   try {
     return JSON.parse(fs.readFileSync(CREDENTIALS_PATH, 'utf8'));
   } catch (error) {
-    console.error('credentials.json not found. Please authorize Google Calendar access.');
+    logger.error('credentials.json not found. Please authorize Google Calendar access.');
     throw error;
   }
 }
@@ -38,7 +39,7 @@ function getGoogleCalendarToken() {
     try {
       return JSON.parse(process.env.GOOGLE_CALENDAR_TOKEN);
     } catch (error) {
-      console.error('Failed to parse GOOGLE_CALENDAR_TOKEN:', error.message);
+      logger.error('Failed to parse GOOGLE_CALENDAR_TOKEN:', { arg0: error.message });
       throw error;
     }
   }
@@ -47,7 +48,7 @@ function getGoogleCalendarToken() {
   try {
     return JSON.parse(fs.readFileSync(TOKEN_PATH, 'utf8'));
   } catch (error) {
-    console.error('token.json not found. Please authorize Google Calendar access.');
+    logger.error('token.json not found. Please authorize Google Calendar access.');
     throw error;
   }
 }
@@ -55,7 +56,7 @@ function getGoogleCalendarToken() {
 function saveGoogleCalendarToken(token) {
   // Railway: can't save to environment, just use existing
   if (process.env.GOOGLE_CALENDAR_TOKEN) {
-    console.log('⚠️  Running on Railway - token updates require manual refresh');
+    logger.warn('⚠️  Running on Railway - token updates require manual refresh');
     return;
   }
 

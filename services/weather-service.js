@@ -1,4 +1,5 @@
 const axios = require('axios');
+const logger = require('../utils/logger').service('weather-service');
 
 /**
  * Weather Service - OpenWeatherMap Integration
@@ -28,7 +29,7 @@ class WeatherService {
     try {
       // If no API key, return fallback data
       if (!this.apiKey) {
-        console.warn('⚠️  OPENWEATHER_API_KEY not set, using fallback weather');
+        logger.warn('⚠️  OPENWEATHER_API_KEY not set, using fallback weather');
         return this.getFallbackWeather();
       }
 
@@ -54,7 +55,7 @@ class WeatherService {
         timestamp: new Date().toISOString()
       };
     } catch (error) {
-      console.error('❌ Weather API error:', error.message);
+      logger.error('❌ Weather API error:', { arg0: error.message });
       return this.getFallbackWeather();
     }
   }
@@ -90,7 +91,7 @@ class WeatherService {
 
       return { forecast };
     } catch (error) {
-      console.error('❌ Forecast API error:', error.message);
+      logger.error('❌ Forecast API error:', { arg0: error.message });
       return { forecast: [] };
     }
   }

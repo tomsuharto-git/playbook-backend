@@ -1,3 +1,5 @@
+const logger = require('../../utils/logger');
+
 /**
  * Automated pending tasks analysis
  * Analyzes 172 pending tasks to find patterns and issues
@@ -6,7 +8,7 @@
 const { supabase } = require('./db/supabase-client');
 
 async function analyzePendingTasks() {
-  console.log('\n🔍 Analyzing pending tasks...\n');
+  logger.debug('\n🔍 Analyzing pending tasks...\n');
 
   // Fetch all pending tasks
   const { data: tasks, error } = await supabase
@@ -16,11 +18,11 @@ async function analyzePendingTasks() {
     .order('created_at', { ascending: false });
 
   if (error) {
-    console.error('❌ Error:', error);
+    logger.error('❌ Error:', { arg0: error });
     return;
   }
 
-  console.log(`📊 Total pending tasks: ${tasks.length}\n`);
+  logger.debug('📊 Total pending tasks: \n', { length: tasks.length });
 
   // Analysis buckets
   const analysis = {
@@ -115,127 +117,129 @@ async function analyzePendingTasks() {
   }
 
   // Print report
-  console.log('═'.repeat(80));
-  console.log('PENDING TASKS ANALYSIS REPORT');
-  console.log('═'.repeat(80));
-  console.log();
+  logger.info('═'.repeat(80));
+  logger.info('PENDING TASKS ANALYSIS REPORT');
+  logger.info('═'.repeat(80));
+  logger.info();
 
-  console.log('📊 CONFIDENCE DISTRIBUTION');
-  console.log('─'.repeat(80));
-  console.log(`  High (90%+):      ${analysis.byConfidence.high.length} tasks`);
-  console.log(`  Medium (70-89%):  ${analysis.byConfidence.medium.length} tasks`);
-  console.log(`  Low (<70%):       ${analysis.byConfidence.low.length} tasks`);
-  console.log(`  No confidence:    ${analysis.byConfidence.none.length} tasks`);
-  console.log();
+  logger.debug('📊 CONFIDENCE DISTRIBUTION');
+  logger.info('─'.repeat(80));
+  logger.info('High (90%+):       tasks', { length: analysis.byConfidence.high.length });
+  logger.info('Medium (70-89%):   tasks', { length: analysis.byConfidence.medium.length });
+  logger.info('Low (<70%):        tasks', { length: analysis.byConfidence.low.length });
+  logger.info('No confidence:     tasks', { length: analysis.byConfidence.none.length });
+  logger.info();
 
-  console.log('⏰ TIME DISTRIBUTION');
-  console.log('─'.repeat(80));
-  console.log(`  Last 24 hours:    ${analysis.recentVsOld.last24h.length} tasks`);
-  console.log(`  Last 7 days:      ${analysis.recentVsOld.last7days.length} tasks`);
-  console.log(`  Older than 7d:    ${analysis.recentVsOld.older.length} tasks`);
-  console.log();
+  logger.info('⏰ TIME DISTRIBUTION');
+  logger.info('─'.repeat(80));
+  logger.info('Last 24 hours:     tasks', { length: analysis.recentVsOld.last24h.length });
+  logger.info('Last 7 days:       tasks', { length: analysis.recentVsOld.last7days.length });
+  logger.info('Older than 7d:     tasks', { length: analysis.recentVsOld.older.length });
+  logger.info();
 
-  console.log('🔍 ISSUE PATTERNS');
-  console.log('─'.repeat(80));
-  console.log(`  Meeting invites:  ${analysis.meetingInvites.length} tasks (should be calendar events)`);
-  console.log(`  FYI/Informational:${analysis.fyiEmails.length} tasks (no action needed)`);
-  console.log(`  Vague tasks:      ${analysis.vague.length} tasks (unclear action)`);
-  console.log();
+  logger.debug('🔍 ISSUE PATTERNS');
+  logger.info('─'.repeat(80));
+  logger.info('Meeting invites:   tasks (should be calendar events)', { length: analysis.meetingInvites.length });
+  logger.info('FYI/Informational: tasks (no action needed)', { length: analysis.fyiEmails.length });
+  logger.info('Vague tasks:       tasks (unclear action)', { length: analysis.vague.length });
+  logger.info();
 
-  console.log('📁 TOP 10 SOURCES');
-  console.log('─'.repeat(80));
+  logger.info('📁 TOP 10 SOURCES');
+  logger.info('─'.repeat(80));
   const sortedSources = Object.entries(analysis.bySource)
     .sort((a, b) => b[1].length - a[1].length)
     .slice(0, 10);
 
   sortedSources.forEach(([source, tasks]) => {
-    console.log(`  ${tasks.length.toString().padStart(3)} tasks | ${source.substring(0, 60)}`);
+    logger.info('tasks |', { padStart(3): tasks.length.toString().padStart(3), substring(0, 60): source.substring(0, 60) });
   });
-  console.log();
+  logger.info();
 
-  console.log('🎯 PROJECT DISTRIBUTION');
-  console.log('─'.repeat(80));
+  logger.info('🎯 PROJECT DISTRIBUTION');
+  logger.info('─'.repeat(80));
   const sortedProjects = Object.entries(analysis.byProject)
     .sort((a, b) => b[1].length - a[1].length)
     .slice(0, 10);
 
   sortedProjects.forEach(([projectId, tasks]) => {
     const projectName = projectId === 'none' ? '(No Project)' : projectId.substring(0, 8);
-    console.log(`  ${tasks.length.toString().padStart(3)} tasks | ${projectName}`);
+    logger.info('tasks |', { padStart(3): tasks.length.toString().padStart(3), projectName: projectName });
   });
-  console.log();
+  logger.info();
 
   // Sample meeting invites
   if (analysis.meetingInvites.length > 0) {
-    console.log('🚫 SAMPLE MEETING INVITES (should be calendar events):');
-    console.log('─'.repeat(80));
+    logger.info('🚫 SAMPLE MEETING INVITES (should be calendar events):');
+    logger.info('─'.repeat(80));
     analysis.meetingInvites.slice(0, 5).forEach((task, i) => {
-      console.log(`\n${i + 1}. "${task.title}"`);
-      console.log(`   Confidence: ${(task.confidence * 100).toFixed(0)}%`);
-      console.log(`   Reasoning: ${task.detection_reasoning?.substring(0, 100)}...`);
+      logger.info('\n. ""', { i + 1: i + 1, title: task.title });
+      logger.info('Confidence: %', { toFixed(0): (task.confidence * 100).toFixed(0) });
+      logger.info('Reasoning: ...', { substring(0, 100): task.detection_reasoning?.substring(0, 100) });
     });
-    console.log();
+    logger.info();
   }
 
   // Sample FYI emails
   if (analysis.fyiEmails.length > 0) {
-    console.log('ℹ️  SAMPLE FYI EMAILS (no action needed):');
-    console.log('─'.repeat(80));
+    logger.info('ℹ️  SAMPLE FYI EMAILS (no action needed):');
+    logger.info('─'.repeat(80));
     analysis.fyiEmails.slice(0, 5).forEach((task, i) => {
-      console.log(`\n${i + 1}. "${task.title}"`);
-      console.log(`   Confidence: ${(task.confidence * 100).toFixed(0)}%`);
-      console.log(`   Reasoning: ${task.detection_reasoning?.substring(0, 100)}...`);
+      logger.info('\n. ""', { i + 1: i + 1, title: task.title });
+      logger.info('Confidence: %', { toFixed(0): (task.confidence * 100).toFixed(0) });
+      logger.info('Reasoning: ...', { substring(0, 100): task.detection_reasoning?.substring(0, 100) });
     });
-    console.log();
+    logger.info();
   }
 
   // Sample vague tasks
   if (analysis.vague.length > 0) {
-    console.log('❓ SAMPLE VAGUE TASKS (unclear action):');
-    console.log('─'.repeat(80));
+    logger.info('❓ SAMPLE VAGUE TASKS (unclear action):');
+    logger.info('─'.repeat(80));
     analysis.vague.slice(0, 5).forEach((task, i) => {
-      console.log(`\n${i + 1}. "${task.title}"`);
-      console.log(`   Confidence: ${(task.confidence * 100).toFixed(0)}%`);
-      console.log(`   Reasoning: ${task.detection_reasoning?.substring(0, 100)}...`);
+      logger.info('\n. ""', { i + 1: i + 1, title: task.title });
+      logger.info('Confidence: %', { toFixed(0): (task.confidence * 100).toFixed(0) });
+      logger.info('Reasoning: ...', { substring(0, 100): task.detection_reasoning?.substring(0, 100) });
     });
-    console.log();
+    logger.info();
   }
 
   // Recommendations
-  console.log('💡 RECOMMENDATIONS');
-  console.log('─'.repeat(80));
-  console.log();
+  logger.info('💡 RECOMMENDATIONS');
+  logger.info('─'.repeat(80));
+  logger.info();
 
   if (analysis.meetingInvites.length > 10) {
-    console.log(`1. HIGH PRIORITY: Fix meeting invite detection`);
-    console.log(`   ${analysis.meetingInvites.length} tasks are calendar events, not tasks`);
-    console.log(`   Action: Update email-analyzer.js to reject meeting invites`);
-    console.log();
+    logger.info('1. HIGH PRIORITY: Fix meeting invite detection');
+    logger.info('tasks are calendar events, not tasks', { length: analysis.meetingInvites.length });
+    logger.info('Action: Update email-analyzer.js to reject meeting invites');
+    logger.info();
   }
 
   if (analysis.fyiEmails.length > 10) {
-    console.log(`2. HIGH PRIORITY: Improve FYI/informational filtering`);
-    console.log(`   ${analysis.fyiEmails.length} tasks have no actionable items`);
-    console.log(`   Action: Strengthen action verb detection in email-analyzer.js`);
-    console.log();
+    logger.info('2. HIGH PRIORITY: Improve FYI/informational filtering');
+    logger.info('tasks have no actionable items', { length: analysis.fyiEmails.length });
+    logger.info('Action: Strengthen action verb detection in email-analyzer.js');
+    logger.info();
   }
 
   if (analysis.vague.length > 10) {
-    console.log(`3. MEDIUM PRIORITY: Increase clarity threshold`);
-    console.log(`   ${analysis.vague.length} tasks have vague/unclear actions`);
-    console.log(`   Action: Require specific action verbs and objects`);
-    console.log();
+    logger.info('3. MEDIUM PRIORITY: Increase clarity threshold');
+    logger.info('tasks have vague/unclear actions', { length: analysis.vague.length });
+    logger.info('Action: Require specific action verbs and objects');
+    logger.info();
   }
 
   if (analysis.recentVsOld.older.length > 20) {
-    console.log(`4. CLEANUP: Remove old pending tasks`);
-    console.log(`   ${analysis.recentVsOld.older.length} tasks are over 7 days old`);
-    console.log(`   Action: Review and archive/delete stale pending tasks`);
-    console.log();
+    logger.info('4. CLEANUP: Remove old pending tasks');
+    logger.info('tasks are over 7 days old', { length: analysis.recentVsOld.older.length });
+    logger.info('Action: Review and archive/delete stale pending tasks');
+    logger.info();
   }
 
-  console.log('═'.repeat(80));
-  console.log();
+  logger.info('═'.repeat(80));
+  logger.info();
 }
 
-analyzePendingTasks().catch(console.error);
+analyzePendingTasks().catch(error => {
+  logger.error('❌ Script failed', { error: error.message, stack: error.stack });
+});

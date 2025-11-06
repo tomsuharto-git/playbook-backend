@@ -4,6 +4,7 @@
  */
 
 const express = require('express');
+const logger = require('../utils/logger').route('admin');
 const router = express.Router();
 const { supabase } = require('../db/supabase-client');
 
@@ -13,7 +14,7 @@ const { supabase } = require('../db/supabase-client');
  */
 router.post('/cleanup-no-title-events', async (req, res) => {
   try {
-    console.log('\n🧹 API: Starting cleanup of "No Title" events...\n');
+    logger.info('\n🧹 API: Starting cleanup of "No Title" events...\n');
 
     // First, count how many events will be deleted
     const { count: totalCount, error: countError } = await supabase
@@ -22,7 +23,7 @@ router.post('/cleanup-no-title-events', async (req, res) => {
       .or('summary.eq.No Title,summary.eq.,summary.is.null');
 
     if (countError) {
-      console.error('❌ Error counting events:', countError);
+      logger.error('❌ Error counting events:', { arg0: countError });
       return res.status(500).json({
         success: false,
         error: 'Failed to count events',
@@ -30,7 +31,7 @@ router.post('/cleanup-no-title-events', async (req, res) => {
       });
     }
 
-    console.log(`📊 Found ${totalCount} "No Title" events to delete`);
+    logger.debug('📊 Found  "No Title" events to delete', { totalCount: totalCount });
 
     if (totalCount === 0) {
       return res.json({
@@ -48,9 +49,9 @@ router.post('/cleanup-no-title-events', async (req, res) => {
       .limit(5);
 
     if (!exampleError && examples) {
-      console.log('📋 Example events to be deleted:');
+      logger.info('📋 Example events to be deleted:');
       examples.forEach((event, i) => {
-        console.log(`   ${i + 1}. "${event.summary || '(empty)'}" | ${event.calendar_category} | ${event.location || 'no location'}`);
+        logger.info('. "" |  |', { i + 1: i + 1, summary || '(empty)': event.summary || '(empty)', calendar_category: event.calendar_category, location || 'no location': event.location || 'no location' });
       });
     }
 
@@ -62,7 +63,7 @@ router.post('/cleanup-no-title-events', async (req, res) => {
       .select();
 
     if (deleteError) {
-      console.error('❌ Error deleting events:', deleteError);
+      logger.error('❌ Error deleting events:', { arg0: deleteError });
       return res.status(500).json({
         success: false,
         error: 'Failed to delete events',
@@ -71,7 +72,7 @@ router.post('/cleanup-no-title-events', async (req, res) => {
     }
 
     const deletedCount = deleted?.length || 0;
-    console.log(`✅ Successfully deleted ${deletedCount} "No Title" events`);
+    logger.info('✅ Successfully deleted  "No Title" events', { deletedCount: deletedCount });
 
     // Verify cleanup
     const { count: remainingCount, error: verifyError } = await supabase
@@ -80,7 +81,7 @@ router.post('/cleanup-no-title-events', async (req, res) => {
       .or('summary.eq.No Title,summary.eq.,summary.is.null');
 
     const isClean = !verifyError && remainingCount === 0;
-    console.log(`🔍 Verification: ${remainingCount} "No Title" events remaining`);
+    logger.debug('🔍 Verification:  "No Title" events remaining', { remainingCount: remainingCount });
 
     return res.json({
       success: true,
@@ -93,7 +94,7 @@ router.post('/cleanup-no-title-events', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ Unexpected error:', error);
+    logger.error('❌ Unexpected error:', { arg0: error });
     return res.status(500).json({
       success: false,
       error: 'Unexpected error during cleanup',

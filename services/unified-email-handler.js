@@ -9,6 +9,7 @@
  */
 
 const centralProcessor = require('./central-processor');
+const logger = require('../utils/logger').service('unified-email-handler');
 const { supabase } = require('../db/supabase-client');
 
 class UnifiedEmailHandler {
@@ -22,14 +23,14 @@ class UnifiedEmailHandler {
    */
   async processEmail(emailData, source = 'gmail') {
     try {
-      console.log(`\n📧 [EMAIL HANDLER] Processing ${source} email`);
-      console.log(`   Subject: ${emailData.subject}`);
-      console.log(`   From: ${emailData.from}`);
+      logger.info('\n📧 [EMAIL HANDLER] Processing  email', { source: source });
+      logger.info('Subject:', { subject: emailData.subject });
+      logger.info('From:', { from: emailData.from });
 
       // Step 1: Check if already processed (deduplication)
       const isDuplicate = await this.checkDuplicate(emailData, source);
       if (isDuplicate) {
-        console.log(`   ⏭️  Email already processed, skipping`);
+        logger.info('⏭️  Email already processed, skipping');
         return { skipped: true, reason: 'duplicate' };
       }
 
@@ -45,8 +46,8 @@ class UnifiedEmailHandler {
       // Step 5: Create email-specific relationships
       await this.createEmailRelationships(emailData, results);
 
-      console.log(`\n✅ [EMAIL HANDLER] Processing complete`);
-      console.log(`   Created: ${results.tasks.length} tasks, ${results.events.length} events, ${results.narratives.length} narratives`);
+      logger.info('\n✅ [EMAIL HANDLER] Processing complete');
+      logger.info('Created:  tasks,  events,  narratives', { length: results.tasks.length, length: results.events.length, length: results.narratives.length });
 
       return {
         success: true,
@@ -55,7 +56,7 @@ class UnifiedEmailHandler {
       };
 
     } catch (error) {
-      console.error(`❌ [EMAIL HANDLER] Error:`, error);
+      logger.error('❌ [EMAIL HANDLER] Error:');
       return {
         success: false,
         error: error.message,
@@ -327,7 +328,7 @@ class UnifiedEmailHandler {
       });
 
     if (error) {
-      console.error('Failed to mark email as processed:', error);
+      logger.error('Failed to mark email as processed:', { arg0: error });
     } else {
       // Add to cache
       const cacheKey = `${source}:${emailData.id || emailData.email_id}`;
@@ -347,7 +348,7 @@ class UnifiedEmailHandler {
     // - Track email-to-task conversions
 
     if (emailData.threadId && results.tasks.length > 0) {
-      console.log(`   🔗 Would link ${results.tasks.length} tasks to thread ${emailData.threadId}`);
+      logger.info('🔗 Would link  tasks to thread', { length: results.tasks.length, threadId: emailData.threadId });
     }
   }
 
@@ -355,7 +356,7 @@ class UnifiedEmailHandler {
    * Process multiple emails in batch
    */
   async processBatch(emails, source = 'gmail') {
-    console.log(`\n📧 [EMAIL HANDLER] Processing batch of ${emails.length} ${source} emails`);
+    logger.info('\n📧 [EMAIL HANDLER] Processing batch of   emails', { length: emails.length, source: source });
 
     const results = {
       processed: 0,
@@ -383,16 +384,16 @@ class UnifiedEmailHandler {
           results.errors++;
         }
       } catch (error) {
-        console.error(`Error processing email:`, error);
+        logger.error('Error processing email:');
         results.errors++;
       }
     }
 
-    console.log(`\n📊 [EMAIL HANDLER] Batch complete:`);
-    console.log(`   Processed: ${results.processed}`);
-    console.log(`   Skipped: ${results.skipped}`);
-    console.log(`   Errors: ${results.errors}`);
-    console.log(`   Created: ${results.entities.tasks} tasks, ${results.entities.events} events, ${results.entities.narratives} narratives`);
+    logger.debug('\n📊 [EMAIL HANDLER] Batch complete:');
+    logger.info('Processed:', { processed: results.processed });
+    logger.info('Skipped:', { skipped: results.skipped });
+    logger.error('Errors:', { errors: results.errors });
+    logger.info('Created:  tasks,  events,  narratives', { tasks: results.entities.tasks, events: results.entities.events, narratives: results.entities.narratives });
 
     return results;
   }
@@ -410,7 +411,7 @@ class UnifiedEmailHandler {
       .lt('processed_at', cutoffDate.toISOString());
 
     if (!error) {
-      console.log(`🧹 Cleaned up processed email records older than ${daysToKeep} days`);
+      logger.info('🧹 Cleaned up processed email records older than  days', { daysToKeep: daysToKeep });
     }
 
     // Clear cache

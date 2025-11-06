@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+const logger = require('../utils/logger');
+
 /**
  * Phase 2 Migration Script
  *
@@ -24,7 +26,7 @@ const colors = {
 };
 
 function log(message, color = 'reset') {
-  console.log(`${colors[color]}${message}${colors.reset}`);
+  logger.info('', { colors[color]: colors[color], message: message, reset: colors.reset });
 }
 
 /**
@@ -108,7 +110,7 @@ async function migrateEvents() {
             .insert(eventData);
 
           if (insertError) {
-            console.error(`Error inserting event: ${insertError.message}`);
+            logger.error('Error inserting event:', { message: insertError.message });
             errorCount++;
           } else {
             eventCount++;
@@ -118,7 +120,7 @@ async function migrateEvents() {
           }
 
         } catch (err) {
-          console.error(`Error processing event:`, err.message);
+          logger.error('Error processing event:');
           errorCount++;
         }
       }
@@ -209,7 +211,7 @@ async function migrateNarratives() {
             if (insertError.message.includes('duplicate')) {
               // Silently skip duplicates
             } else {
-              console.error(`Error inserting narrative: ${insertError.message}`);
+              logger.error('Error inserting narrative:', { message: insertError.message });
               errorCount++;
             }
           } else {
@@ -220,7 +222,7 @@ async function migrateNarratives() {
           }
 
         } catch (err) {
-          console.error(`Error processing narrative:`, err.message);
+          logger.error('Error processing narrative:');
           errorCount++;
         }
       }

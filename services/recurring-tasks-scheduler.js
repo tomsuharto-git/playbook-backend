@@ -1,4 +1,5 @@
 const cron = require('node-cron');
+const logger = require('../utils/logger').service('recurring-tasks-scheduler');
 const { createClient } = require('@supabase/supabase-js');
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
@@ -13,7 +14,7 @@ class RecurringTasksScheduler {
    * Runs every 3 hours to check for tasks that need to be generated
    */
   start() {
-    console.log('🔄 Starting recurring tasks scheduler (runs every 3 hours)');
+    logger.info('🔄 Starting recurring tasks scheduler (runs every 3 hours)');
 
     // Run immediately on startup
     this.checkAndGenerateTasks();
@@ -23,7 +24,7 @@ class RecurringTasksScheduler {
       this.checkAndGenerateTasks();
     });
 
-    console.log('✅ Recurring tasks scheduler started');
+    logger.info('✅ Recurring tasks scheduler started');
   }
 
   /**
@@ -32,7 +33,7 @@ class RecurringTasksScheduler {
   stop() {
     if (this.job) {
       this.job.stop();
-      console.log('🛑 Recurring tasks scheduler stopped');
+      logger.info('🛑 Recurring tasks scheduler stopped');
     }
   }
 
@@ -41,7 +42,7 @@ class RecurringTasksScheduler {
    */
   async checkAndGenerateTasks() {
     try {
-      console.log('🔍 Checking for recurring tasks to generate...');
+      logger.debug('🔍 Checking for recurring tasks to generate...');
 
       // Get current time in Eastern timezone
       const now = new Date();
@@ -51,8 +52,8 @@ class RecurringTasksScheduler {
       const currentHour = easternTime.getHours();
       const currentMinute = easternTime.getMinutes();
 
-      console.log(`📅 Current Eastern time: ${easternTime.toLocaleString('en-US', { timeZone: 'America/New_York' })}`);
-      console.log(`   Day: ${currentDay} (0=Sunday), Time: ${currentTime}`);
+      logger.info('📅 Current Eastern time: )}', { toLocaleString('en-US', { timeZone: 'America/New_York': easternTime.toLocaleString('en-US', { timeZone: 'America/New_York' });
+      logger.info('Day:  (0=Sunday), Time:', { currentDay: currentDay, currentTime: currentTime });
 
       // Fetch all active recurring tasks
       const { data: recurringTasks, error: fetchError } = await supabase
@@ -61,24 +62,24 @@ class RecurringTasksScheduler {
         .eq('active', true);
 
       if (fetchError) {
-        console.error('❌ Error fetching recurring tasks:', fetchError);
+        logger.error('❌ Error fetching recurring tasks:', { arg0: fetchError });
         return;
       }
 
       if (!recurringTasks || recurringTasks.length === 0) {
-        console.log('📭 No active recurring tasks found');
+        logger.info('📭 No active recurring tasks found');
         return;
       }
 
-      console.log(`📋 Found ${recurringTasks.length} active recurring task(s)`);
+      logger.info('📋 Found  active recurring task(s)', { length: recurringTasks.length });
 
       for (const recurringTask of recurringTasks) {
         await this.processRecurringTask(recurringTask, easternTime, currentDay, currentTime);
       }
 
-      console.log('✅ Recurring tasks check complete');
+      logger.info('✅ Recurring tasks check complete');
     } catch (error) {
-      console.error('❌ Error in checkAndGenerateTasks:', error);
+      logger.error('❌ Error in checkAndGenerateTasks:', { arg0: error });
     }
   }
 
@@ -111,7 +112,7 @@ class RecurringTasksScheduler {
       // Generate the task!
       await this.generateTask(recurringTask, easternTime);
     } catch (error) {
-      console.error(`❌ Error processing recurring task ${recurringTask.id}:`, error);
+      logger.error('❌ Error processing recurring task :', { id: recurringTask.id });
     }
   }
 
@@ -145,7 +146,7 @@ class RecurringTasksScheduler {
       .gte('created_at', startOfDay.toISOString());
 
     if (error) {
-      console.error('Error checking for existing task:', error);
+      logger.error('Error checking for existing task:', { arg0: error });
       return false;
     }
 
@@ -171,7 +172,7 @@ class RecurringTasksScheduler {
    */
   async generateTask(recurringTask, easternTime) {
     try {
-      console.log(`🎯 Generating task from recurring template: "${recurringTask.title}"`);
+      logger.info('🎯 Generating task from recurring template: ""', { title: recurringTask.title });
 
       const newTask = {
         title: recurringTask.title,
@@ -198,11 +199,11 @@ class RecurringTasksScheduler {
         .single();
 
       if (error) {
-        console.error('❌ Error creating task:', error);
+        logger.error('❌ Error creating task:', { arg0: error });
         return;
       }
 
-      console.log(`✅ Task created successfully: ${data.id}`);
+      logger.info('✅ Task created successfully:', { id: data.id });
 
       // Update last_generated_at
       const { error: updateError } = await supabase
@@ -211,12 +212,12 @@ class RecurringTasksScheduler {
         .eq('id', recurringTask.id);
 
       if (updateError) {
-        console.error('⚠️  Error updating last_generated_at:', updateError);
+        logger.error('⚠️  Error updating last_generated_at:', { arg0: updateError });
       }
 
-      console.log(`📅 Updated last_generated_at for recurring task ${recurringTask.id}`);
+      logger.info('📅 Updated last_generated_at for recurring task', { id: recurringTask.id });
     } catch (error) {
-      console.error('❌ Error in generateTask:', error);
+      logger.error('❌ Error in generateTask:', { arg0: error });
     }
   }
 }

@@ -1,8 +1,10 @@
+const logger = require('../../utils/logger');
+
 const { supabase } = require('./db/supabase-client');
 
 (async () => {
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
-  console.log('Checking Brief for:', today);
+  logger.info('Checking Brief for:', { arg0: today });
 
   const { data, error } = await supabase
     .from('daily_briefs')
@@ -11,23 +13,23 @@ const { supabase } = require('./db/supabase-client');
     .single();
 
   if (error) {
-    console.log('Error:', error.message);
+    logger.error('Error:', { arg0: error.message });
     process.exit(1);
   }
 
   if (!data) {
-    console.log('No brief found for today');
+    logger.info('No brief found for today');
     process.exit(0);
   }
 
   const events = data.calendar_events || [];
-  console.log('\nTotal events:', events.length);
+  logger.info('\nTotal events:', { arg0: events.length });
 
-  console.log('\n=== ALL EVENTS ===');
+  logger.info('\n=== ALL EVENTS ===');
   events.forEach((e, i) => {
-    console.log(`${i+1}. "${e.summary}" - ${e.start?.dateTime || e.start?.date || 'NO TIME'}`);
-    console.log(`   Category: ${e.calendar_category || 'unknown'}`);
-    console.log(`   Attendees: ${e.attendees?.length || 0}`);
+    logger.info('. "" -', { i+1: i+1, summary: e.summary, date || 'NO TIME': e.start?.dateTime || e.start?.date || 'NO TIME' });
+    logger.info('Category:', { calendar_category || 'unknown': e.calendar_category || 'unknown' });
+    logger.info('Attendees:', { length || 0: e.attendees?.length || 0 });
   });
 
   const invalidEvents = events.filter(e => {
@@ -35,11 +37,11 @@ const { supabase } = require('./db/supabase-client');
     return !title || title.trim() === '' || title === 'No Title' || !e.start?.dateTime && !e.start?.date;
   });
 
-  console.log('\n=== INVALID EVENTS ===');
-  console.log('Found:', invalidEvents.length);
+  logger.info('\n=== INVALID EVENTS ===');
+  logger.info('Found:', { arg0: invalidEvents.length });
   invalidEvents.forEach(e => {
-    console.log('  - Title:', e.summary || 'EMPTY');
-    console.log('    Time:', e.start?.dateTime || e.start?.date || 'NO TIME');
+    logger.info('  - Title:');
+    logger.info('    Time:');
   });
 
   process.exit(0);

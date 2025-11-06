@@ -1,3 +1,5 @@
+const logger = require('../../utils/logger');
+
 /**
  * Check what dates are in the Outlook calendar file
  */
@@ -10,12 +12,12 @@ async function checkDates() {
     const calendarFile = await getLatestCalendarFile();
 
     if (!calendarFile) {
-      console.log('No calendar file found');
+      logger.info('No calendar file found');
       return;
     }
 
     const events = calendarFile.data.value || [];
-    console.log(`\nTotal events in file: ${events.length}`);
+    logger.info('\nTotal events in file:', { length: events.length });
 
     // Count events by date
     const dateCounts = {};
@@ -28,32 +30,32 @@ async function checkDates() {
       }
     });
 
-    console.log(`\nEvents by date:`);
+    logger.info('\nEvents by date:');
     Object.entries(dateCounts).sort().forEach(([date, count]) => {
-      console.log(`  ${date}: ${count} events`);
+      logger.info(':  events', { date: date, count: count });
     });
 
     // Show sample event for Oct 12 and 13
-    console.log(`\n=== Sample events for Oct 12 ===`);
+    logger.info('\n=== Sample events for Oct 12 ===');
     const oct12Events = events.filter(e => {
       const start = e.start || e.startWithTimeZone;
       return start && start.startsWith('2025-10-12');
     });
     oct12Events.slice(0, 3).forEach(e => {
-      console.log(`  "${e.subject}" - ${e.start || e.startWithTimeZone}`);
+      logger.info('"" -', { subject: e.subject, startWithTimeZone: e.start || e.startWithTimeZone });
     });
 
-    console.log(`\n=== Sample events for Oct 13 ===`);
+    logger.info('\n=== Sample events for Oct 13 ===');
     const oct13Events = events.filter(e => {
       const start = e.start || e.startWithTimeZone;
       return start && start.startsWith('2025-10-13');
     });
     oct13Events.slice(0, 3).forEach(e => {
-      console.log(`  "${e.subject}" - ${e.start || e.startWithTimeZone}`);
+      logger.info('"" -', { subject: e.subject, startWithTimeZone: e.start || e.startWithTimeZone });
     });
 
   } catch (error) {
-    console.error('Error:', error.message);
+    logger.error('Error:', { arg0: error.message });
   }
 }
 

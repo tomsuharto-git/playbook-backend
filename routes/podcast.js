@@ -12,6 +12,7 @@ const express = require('express');
 const router = express.Router();
 const path = require('path');
 const podcastGenerator = require('../services/podcast-generator');
+const logger = require('../utils/logger').route('podcast');
 const { supabase } = require('../db/supabase-client');
 
 /**
@@ -20,7 +21,7 @@ const { supabase } = require('../db/supabase-client');
  */
 router.post('/generate', async (req, res) => {
   try {
-    console.log('\n📡 Manual podcast generation triggered');
+    logger.info('\n📡 Manual podcast generation triggered');
 
     // Generate markdown and save to database
     const result = await podcastGenerator.generateMorningPodcast();
@@ -39,7 +40,7 @@ router.post('/generate', async (req, res) => {
                            process.env.PODCAST_VOICE_2;
 
     if (!hasRequiredKeys) {
-      console.log('   ⚠️  Missing required API keys or voice IDs');
+      logger.warn('   ⚠️  Missing required API keys or voice IDs');
       return res.json({
         success: true,
         date: result.date,
@@ -51,14 +52,14 @@ router.post('/generate', async (req, res) => {
     }
 
     // Generate podcast using Claude script + TTS pipeline
-    console.log('   🎙️  Starting podcast audio generation...');
+    logger.info('   🎙️  Starting podcast audio generation...');
 
     const audioResult = await podcastGenerator.generatePodcastWithClaudeScript(
       markdown,
       result.date
     );
 
-    console.log(`   ✅ Podcast audio generated successfully`);
+    logger.info('✅ Podcast audio generated successfully');
 
     // Update database with audio metadata
     await supabase
@@ -84,8 +85,8 @@ router.post('/generate', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('   ❌ Podcast generation error:', error.message);
-    console.error('   Stack:', error.stack);
+    logger.error('   ❌ Podcast generation error:', { arg0: error.message });
+    logger.error('   Stack:', { arg0: error.stack });
 
     res.status(500).json({
       success: false,
@@ -101,8 +102,8 @@ router.post('/generate', async (req, res) => {
  */
 router.post('/webhook', async (req, res) => {
   try {
-    console.log('\n📡 Webhook received from ElevenLabs');
-    console.log('   Body:', JSON.stringify(req.body, null, 2));
+    logger.info('\n📡 Webhook received from ElevenLabs');
+    logger.info('   Body:', { arg1: null });
 
     const { project_id, status, audio_url, duration_seconds, file_size_bytes } = req.body;
 
@@ -118,7 +119,7 @@ router.post('/webhook', async (req, res) => {
       .single();
 
     if (findError || !podcast) {
-      console.error('   ❌ Podcast not found for project_id:', project_id);
+      logger.error('   ❌ Podcast not found for project_id:', { arg0: project_id });
       return res.status(404).json({
         success: false,
         error: 'Podcast not found'
@@ -145,8 +146,8 @@ router.post('/webhook', async (req, res) => {
       throw new Error(`Database update failed: ${updateError.message}`);
     }
 
-    console.log(`   ✅ Podcast ${podcast.date} updated to: ${updates.status}`);
-    if (audio_url) console.log(`   🎧 Audio URL: ${audio_url}`);
+    logger.info('✅ Podcast  updated to:', { date: podcast.date, status: updates.status });
+    if (audio_url) logger.info('🎧 Audio URL:', { audio_url: audio_url });
 
     res.json({
       success: true,
@@ -154,7 +155,7 @@ router.post('/webhook', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('   ❌ Webhook error:', error.message);
+    logger.error('   ❌ Webhook error:', { arg0: error.message });
 
     res.status(500).json({
       success: false,
@@ -214,7 +215,7 @@ router.get('/health', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Health check error:', error.message);
+    logger.error('Health check error:', { arg0: error.message });
 
     res.status(500).json({
       healthy: false,
@@ -274,7 +275,7 @@ router.get('/latest', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Get latest podcast error:', error.message);
+    logger.error('Get latest podcast error:', { arg0: error.message });
 
     res.status(500).json({
       success: false,
@@ -329,7 +330,7 @@ router.get('/:date', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Get podcast error:', error.message);
+    logger.error('Get podcast error:', { arg0: error.message });
 
     res.status(500).json({
       success: false,
@@ -390,7 +391,7 @@ router.get('/audio/:date', async (req, res) => {
 
     res.sendFile(absolutePath, error => {
       if (error) {
-        console.error(`   ❌ Error serving audio file: ${error.message}`);
+        logger.error('❌ Error serving audio file:', { message: error.message });
         if (!res.headersSent) {
           res.status(404).json({
             success: false,
@@ -401,7 +402,7 @@ router.get('/audio/:date', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Serve audio error:', error.message);
+    logger.error('Serve audio error:', { arg0: error.message });
 
     res.status(500).json({
       success: false,

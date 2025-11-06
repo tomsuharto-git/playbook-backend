@@ -11,6 +11,7 @@
 const { supabase } = require('../db/supabase-client');
 const { detectProject } = require('./project-detector');
 const Anthropic = require('@anthropic-ai/sdk');
+const logger = require('../utils/logger').service('central-processor');
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY
@@ -27,11 +28,11 @@ class CentralProcessor {
    */
   async process(input) {
     try {
-      console.log(`\n🔄 [CENTRAL PROCESSOR] Starting processing...`);
+      logger.info('\n🔄 [CENTRAL PROCESSOR] Starting processing...');
 
       // Step 1: Identify source type
       const sourceType = this.identifySource(input);
-      console.log(`   📍 Source type: ${sourceType}`);
+      logger.info('📍 Source type:', { sourceType: sourceType });
 
       // Step 2: Extract and normalize content
       const content = await this.extractContent(input, sourceType);
@@ -39,11 +40,11 @@ class CentralProcessor {
       // Step 3: Detect project with multiple fallback strategies
       const project = await this.detectProjectWithFallbacks(content);
       const projectName = project?.name || 'Unassigned';
-      console.log(`   📁 Project: ${projectName}`);
+      logger.info('📁 Project:', { projectName: projectName });
 
       // Step 4: Analyze content and classify into entities
       const entities = await this.analyzeContent(content, project, sourceType);
-      console.log(`   📊 Entities detected: ${entities.length}`);
+      logger.debug('📊 Entities detected:', { length: entities.length });
 
       // Step 5: Process each entity
       const results = {
@@ -56,7 +57,7 @@ class CentralProcessor {
       for (const entity of entities) {
         // Check for duplicates (except narratives which can accumulate)
         if (entity.type !== 'narrative' && await this.isDuplicate(entity)) {
-          console.log(`   ⏭️  Skipping duplicate ${entity.type}: ${entity.title || entity.headline}`);
+          logger.info('⏭️  Skipping duplicate :', { type: entity.type, headline: entity.title || entity.headline });
           continue;
         }
 
@@ -65,7 +66,7 @@ class CentralProcessor {
 
         // Skip low-significance items (except tasks which are always created)
         if (entity.type !== 'task' && entity.significance_score < 0.5) {
-          console.log(`   ⏭️  Skipping low significance ${entity.type} (${entity.significance_score})`);
+          logger.info('⏭️  Skipping low significance  ()', { type: entity.type, significance_score: entity.significance_score });
           continue;
         }
 
@@ -73,20 +74,20 @@ class CentralProcessor {
         const created = await this.createEntity(entity);
         if (created) {
           results[entity.type + 's'].push(created);
-          console.log(`   ✅ Created ${entity.type}: ${created.title || created.headline}`);
+          logger.info('✅ Created :', { type: entity.type, headline: created.title || created.headline });
         }
       }
 
       // Step 6: Create entity relationships
       await this.linkEntities(results);
 
-      console.log(`\n✅ [CENTRAL PROCESSOR] Complete`);
-      console.log(`   Tasks: ${results.tasks.length}, Events: ${results.events.length}, Narratives: ${results.narratives.length}`);
+      logger.info('\n✅ [CENTRAL PROCESSOR] Complete');
+      logger.info('Tasks: , Events: , Narratives:', { length: results.tasks.length, length: results.events.length, length: results.narratives.length });
 
       return results;
 
     } catch (error) {
-      console.error('❌ [CENTRAL PROCESSOR] Error:', error);
+      logger.error('❌ [CENTRAL PROCESSOR] Error:', { arg0: error });
       throw error;
     }
   }
@@ -174,7 +175,7 @@ class CentralProcessor {
           return project;
         }
       } catch (error) {
-        console.log(`   ⚠️  Strategy failed: ${error.message}`);
+        logger.error('⚠️  Strategy failed:', { message: error.message });
       }
     }
 
@@ -193,7 +194,7 @@ class CentralProcessor {
 
       this.projectsCache = projects || [];
       this.cacheExpiry = Date.now() + (5 * 60 * 1000); // 5 minutes
-      console.log(`   📂 Loaded ${this.projectsCache.length} active projects`);
+      logger.info('📂 Loaded  active projects', { length: this.projectsCache.length });
     }
   }
 
@@ -373,7 +374,7 @@ class CentralProcessor {
         const cleanJson = responseText.substring(jsonStart, jsonEnd);
         analysis = JSON.parse(cleanJson);
       } catch (secondError) {
-        console.error('JSON Parse Error. Response was:', responseText.substring(0, 500));
+        logger.error('JSON Parse Error. Response was:');
         // Return empty result on parse error rather than crashing
         return [];
       }
@@ -571,7 +572,7 @@ IMPORTANT: Return ONLY valid JSON with no additional text, explanation, or comme
 
     // Special handling for narratives with null project
     if (type === 'narrative' && !data.project_id) {
-      console.log(`   ⚠️  Creating orphan narrative (no project)`);
+      logger.warn('⚠️  Creating orphan narrative (no project)');
     }
 
     const { data: created, error } = await supabase
@@ -581,7 +582,7 @@ IMPORTANT: Return ONLY valid JSON with no additional text, explanation, or comme
       .single();
 
     if (error) {
-      console.error(`   ❌ Failed to create ${type}:`, error.message);
+      logger.error('❌ Failed to create :', { type: type });
       return null;
     }
 
@@ -599,7 +600,7 @@ IMPORTANT: Return ONLY valid JSON with no additional text, explanation, or comme
 
     // For now, just log what we would link
     if (results.tasks.length > 0 && results.narratives.length > 0) {
-      console.log(`   🔗 Would link ${results.tasks.length} tasks to narrative`);
+      logger.info('🔗 Would link  tasks to narrative', { length: results.tasks.length });
     }
   }
 

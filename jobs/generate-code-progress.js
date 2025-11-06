@@ -8,6 +8,7 @@ const Anthropic = require('@anthropic-ai/sdk');
 const { supabase } = require('../db/supabase-client');
 const fs = require('fs').promises;
 const path = require('path');
+const logger = require('../utils/logger').job('generate-code-progress');
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -111,7 +112,7 @@ Return ONLY valid JSON in this exact format:
   ]
 }`;
 
-  console.log('   📞 Calling Claude API for progress summary...');
+  logger.info('   📞 Calling Claude API for progress summary...');
 
   const message = await anthropic.messages.create({
     model: 'claude-haiku-4-5',
@@ -130,7 +131,7 @@ Return ONLY valid JSON in this exact format:
   try {
     return JSON.parse(responseText);
   } catch (e) {
-    console.error('   ❌ Failed to parse AI response:', e);
+    logger.error('   ❌ Failed to parse AI response:', { arg0: e });
     // Fallback: create simple summary
     return {
       headline: `Progress update: ${activity.completedTasks.length} tasks completed`,
@@ -143,8 +144,8 @@ Return ONLY valid JSON in this exact format:
  * Generate progress narratives for all active Code projects
  */
 async function generateCodeProjectProgress() {
-  console.log('\n📊 Generating Code Project Progress Narratives\n');
-  console.log('='.repeat(60));
+  logger.debug('\n📊 Generating Code Project Progress Narratives\n');
+  logger.info('='.repeat(60));
 
   try {
     // Get all active Code projects
@@ -155,33 +156,33 @@ async function generateCodeProjectProgress() {
       .eq('status', 'active');
 
     if (error) {
-      console.error('❌ Error fetching Code projects:', error);
+      logger.error('❌ Error fetching Code projects:', { arg0: error });
       return;
     }
 
     if (!codeProjects || codeProjects.length === 0) {
-      console.log('ℹ️  No active Code projects found');
+      logger.info('ℹ️  No active Code projects found');
       return;
     }
 
-    console.log(`\n✅ Found ${codeProjects.length} active Code projects\n`);
+    logger.info('\n✅ Found  active Code projects\n', { length: codeProjects.length });
 
     let processedCount = 0;
     let skippedCount = 0;
 
     for (const project of codeProjects) {
-      console.log(`\n📦 Processing: ${project.name}`);
+      logger.info('\n📦 Processing:', { name: project.name });
 
       // Get 24-hour activity
       const activity = await get24HourActivity(project);
 
       if (!activity.hasActivity) {
-        console.log('   ⏭️  No activity in last 24 hours - skipping');
+        logger.info('   ⏭️  No activity in last 24 hours - skipping');
         skippedCount++;
         continue;
       }
 
-      console.log(`   ✓ Found activity: ${activity.completedTasks.length} tasks, ${activity.newFiles.length} new files, ${activity.updatedFiles.length} updated files`);
+      logger.info('✓ Found activity:  tasks,  new files,  updated files', { length: activity.completedTasks.length, length: activity.newFiles.length, length: activity.updatedFiles.length });
 
       // Generate narrative
       const narrative = await generateProgressNarrative(project, activity);
@@ -215,22 +216,22 @@ async function generateCodeProjectProgress() {
         });
 
       if (insertError) {
-        console.error(`   ❌ Error saving narrative for ${project.name}:`, insertError);
+        logger.error('❌ Error saving narrative for :', { name: project.name });
         continue;
       }
 
-      console.log('   ✅ Progress narrative saved');
+      logger.info('   ✅ Progress narrative saved');
       processedCount++;
     }
 
-    console.log('\n' + '='.repeat(60));
-    console.log(`\n📈 Summary:`);
-    console.log(`   - Projects with activity: ${processedCount}`);
-    console.log(`   - Projects skipped (no activity): ${skippedCount}`);
-    console.log(`   - Total Code projects: ${codeProjects.length}\n`);
+    logger.info('\n' + '='.repeat(60));
+    logger.info('\n📈 Summary:');
+    logger.info('- Projects with activity:', { processedCount: processedCount });
+    logger.info('- Projects skipped (no activity):', { skippedCount: skippedCount });
+    logger.info('- Total Code projects: \n', { length: codeProjects.length });
 
   } catch (error) {
-    console.error('❌ Unexpected error in generateCodeProjectProgress:', error);
+    logger.error('❌ Unexpected error in generateCodeProjectProgress:', { arg0: error });
   }
 }
 
@@ -239,23 +240,23 @@ async function generateCodeProjectProgress() {
  */
 function startCodeProgressSchedule() {
   const cron = require('node-cron');
-  console.log('⏰ Code progress schedule started (6am, 12pm, 6pm)');
+  logger.info('⏰ Code progress schedule started (6am, 12pm, 6pm)');
 
   // 6:00 AM ET
   cron.schedule('0 6 * * *', async () => {
-    console.log('\n⏰ [6am] Code progress generation triggered');
+    logger.info('\n⏰ [6am] Code progress generation triggered');
     await generateCodeProjectProgress();
   });
 
   // 12:00 PM ET
   cron.schedule('0 12 * * *', async () => {
-    console.log('\n⏰ [12pm] Code progress generation triggered');
+    logger.info('\n⏰ [12pm] Code progress generation triggered');
     await generateCodeProjectProgress();
   });
 
   // 6:00 PM ET
   cron.schedule('0 18 * * *', async () => {
-    console.log('\n⏰ [6pm] Code progress generation triggered');
+    logger.info('\n⏰ [6pm] Code progress generation triggered');
     await generateCodeProjectProgress();
   });
 }
@@ -265,7 +266,7 @@ module.exports = { generateCodeProjectProgress, startCodeProgressSchedule };
 // Allow running standalone for testing
 if (require.main === module) {
   generateCodeProjectProgress().then(() => {
-    console.log('✨ Done!');
+    logger.info('✨ Done!');
     process.exit(0);
   });
 }

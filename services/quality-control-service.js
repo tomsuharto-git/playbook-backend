@@ -9,6 +9,7 @@
 
 const { createClient } = require('@supabase/supabase-js');
 const qcConfig = require('../config/qc-config');
+const logger = require('../utils/logger').service('quality-control-service');
 
 // Initialize Supabase client
 const supabase = createClient(
@@ -41,7 +42,7 @@ class QualityControlService {
    * Main QC Run
    */
   async run() {
-    console.log('🔍 Quality Control Agent starting...');
+    logger.debug('🔍 Quality Control Agent starting...');
 
     try {
       // Start QC run tracking
@@ -58,7 +59,7 @@ class QualityControlService {
       await this.completeRun('completed', report);
 
       const duration = Date.now() - startTime;
-      console.log(`✅ QC complete in ${duration}ms: ${this.stats.issues_detected} issues detected, ${this.stats.issues_fixed} fixed`);
+      logger.info('✅ QC complete in ms:  issues detected,  fixed', { duration: duration, issues_detected: this.stats.issues_detected, issues_fixed: this.stats.issues_fixed });
 
       return {
         success: true,
@@ -69,7 +70,7 @@ class QualityControlService {
       };
 
     } catch (error) {
-      console.error('❌ QC Agent failed:', error);
+      logger.error('❌ QC Agent failed:', { arg0: error });
 
       if (this.runId) {
         await this.completeRun('failed', null, [error.message]);
@@ -119,7 +120,7 @@ class QualityControlService {
    */
   async checkSemanticDuplicates() {
     this.stats.total_checks++;
-    console.log('  Checking semantic duplicates...');
+    logger.info('  Checking semantic duplicates...');
 
     try {
       // Fetch all pending tasks
@@ -131,7 +132,7 @@ class QualityControlService {
 
       if (error) throw error;
       if (!pendingTasks || pendingTasks.length === 0) {
-        console.log('    No pending tasks to check');
+        logger.info('    No pending tasks to check');
         return;
       }
 
@@ -164,7 +165,7 @@ class QualityControlService {
         this.stats.issues_detected += duplicatePairs.length;
         this.detections.pendingTasks.duplicates = duplicatePairs;
 
-        console.log(`    Found ${duplicatePairs.length} duplicate pairs`);
+        logger.info('Found  duplicate pairs', { length: duplicatePairs.length });
 
         // In Phase 1 (read-only), just log
         if (this.config.schedule.readOnlyMode) {
@@ -182,11 +183,11 @@ class QualityControlService {
           }
         }
       } else {
-        console.log('    No duplicates found ✓');
+        logger.info('    No duplicates found ✓');
       }
 
     } catch (error) {
-      console.error('    Error checking duplicates:', error);
+      logger.error('    Error checking duplicates:', { arg0: error });
     }
   }
 
@@ -195,7 +196,7 @@ class QualityControlService {
    */
   async checkLowQualityTasks() {
     this.stats.total_checks++;
-    console.log('  Checking low-quality tasks...');
+    logger.info('  Checking low-quality tasks...');
 
     try {
       const { data: pendingTasks, error } = await supabase
@@ -224,7 +225,7 @@ class QualityControlService {
         this.stats.issues_detected += lowQualityTasks.length;
         this.detections.pendingTasks.lowQuality = lowQualityTasks;
 
-        console.log(`    Found ${lowQualityTasks.length} low-quality tasks`);
+        logger.info('Found  low-quality tasks', { length: lowQualityTasks.length });
 
         if (this.config.schedule.readOnlyMode) {
           lowQualityTasks.forEach(item => {
@@ -240,11 +241,11 @@ class QualityControlService {
           }
         }
       } else {
-        console.log('    All pending tasks have acceptable quality ✓');
+        logger.info('    All pending tasks have acceptable quality ✓');
       }
 
     } catch (error) {
-      console.error('    Error checking low-quality tasks:', error);
+      logger.error('    Error checking low-quality tasks:', { arg0: error });
     }
   }
 
@@ -253,7 +254,7 @@ class QualityControlService {
    */
   async checkStalePendingTasks() {
     this.stats.total_checks++;
-    console.log('  Checking stale pending tasks...');
+    logger.info('  Checking stale pending tasks...');
 
     try {
       const staleCutoff = new Date();
@@ -267,14 +268,14 @@ class QualityControlService {
 
       if (error) throw error;
       if (!staleTasks || staleTasks.length === 0) {
-        console.log('    No stale pending tasks ✓');
+        logger.info('    No stale pending tasks ✓');
         return;
       }
 
       this.stats.issues_detected += staleTasks.length;
       this.detections.pendingTasks.stale = staleTasks;
 
-      console.log(`    Found ${staleTasks.length} stale pending tasks (>${this.config.thresholds.stalePendingDays} days)`);
+      logger.info('Found  stale pending tasks (> days)', { length: staleTasks.length, stalePendingDays: this.config.thresholds.stalePendingDays });
 
       if (this.config.schedule.readOnlyMode) {
         staleTasks.forEach(task => {
@@ -290,7 +291,7 @@ class QualityControlService {
       // Note: Even in Phase 2+, we don't auto-dismiss high-confidence stale tasks
 
     } catch (error) {
-      console.error('    Error checking stale tasks:', error);
+      logger.error('    Error checking stale tasks:', { arg0: error });
     }
   }
 
@@ -299,17 +300,17 @@ class QualityControlService {
    */
   async checkAlreadyCompletedTasks() {
     this.stats.total_checks++;
-    console.log('  Checking already-completed tasks...');
+    logger.info('  Checking already-completed tasks...');
 
     try {
       // This is complex - requires narrative analysis
       // For Phase 1, we'll flag for manual review
       // Full implementation would search narratives for completion indicators
 
-      console.log('    (Implementation pending - requires narrative analysis)');
+      logger.info('    (Implementation pending - requires narrative analysis)');
 
     } catch (error) {
-      console.error('    Error checking completed tasks:', error);
+      logger.error('    Error checking completed tasks:', { arg0: error });
     }
   }
 
@@ -322,7 +323,7 @@ class QualityControlService {
    */
   async checkNoTitleEvents() {
     this.stats.total_checks++;
-    console.log('  Checking no-title events...');
+    logger.info('  Checking no-title events...');
 
     try {
       const sevenDaysOut = new Date();
@@ -350,7 +351,7 @@ class QualityControlService {
         this.stats.issues_detected += badTitleEvents.length;
         this.detections.events.noTitle = badTitleEvents;
 
-        console.log(`    Found ${badTitleEvents.length} events with bad titles`);
+        logger.info('Found  events with bad titles', { length: badTitleEvents.length });
 
         if (this.config.schedule.readOnlyMode) {
           badTitleEvents.forEach(event => {
@@ -363,11 +364,11 @@ class QualityControlService {
         // Phase 2+: Auto-enrich would happen here
 
       } else {
-        console.log('    All upcoming events have clear titles ✓');
+        logger.info('    All upcoming events have clear titles ✓');
       }
 
     } catch (error) {
-      console.error('    Error checking event titles:', error);
+      logger.error('    Error checking event titles:', { arg0: error });
     }
   }
 
@@ -376,7 +377,7 @@ class QualityControlService {
    */
   async checkDuplicateEvents() {
     this.stats.total_checks++;
-    console.log('  Checking duplicate events...');
+    logger.info('  Checking duplicate events...');
 
     try {
       const sevenDaysOut = new Date();
@@ -424,7 +425,7 @@ class QualityControlService {
         this.stats.issues_detected += duplicatePairs.length;
         this.detections.events.duplicates = duplicatePairs;
 
-        console.log(`    Found ${duplicatePairs.length} duplicate event pairs`);
+        logger.info('Found  duplicate event pairs', { length: duplicatePairs.length });
 
         if (this.config.schedule.readOnlyMode) {
           duplicatePairs.forEach(pair => {
@@ -437,11 +438,11 @@ class QualityControlService {
         // Phase 2+: Auto-hide would happen here
 
       } else {
-        console.log('    No duplicate events found ✓');
+        logger.info('    No duplicate events found ✓');
       }
 
     } catch (error) {
-      console.error('    Error checking duplicate events:', error);
+      logger.error('    Error checking duplicate events:', { arg0: error });
     }
   }
 
@@ -450,7 +451,7 @@ class QualityControlService {
    */
   async checkMissingProjectAssociation() {
     this.stats.total_checks++;
-    console.log('  Checking events missing project association...');
+    logger.info('  Checking events missing project association...');
 
     try {
       const { data: workEvents, error } = await supabase
@@ -462,14 +463,14 @@ class QualityControlService {
 
       if (error) throw error;
       if (!workEvents || workEvents.length === 0) {
-        console.log('    All work events have project associations ✓');
+        logger.info('    All work events have project associations ✓');
         return;
       }
 
       this.stats.issues_detected += workEvents.length;
       this.detections.events.missingProject = workEvents;
 
-      console.log(`    Found ${workEvents.length} work events without project`);
+      logger.info('Found  work events without project', { length: workEvents.length });
 
       if (this.config.schedule.readOnlyMode) {
         workEvents.forEach(event => {
@@ -482,7 +483,7 @@ class QualityControlService {
       // Phase 2+: Auto-detect and link project would happen here
 
     } catch (error) {
-      console.error('    Error checking missing projects:', error);
+      logger.error('    Error checking missing projects:', { arg0: error });
     }
   }
 
@@ -495,7 +496,7 @@ class QualityControlService {
    */
   async checkOrphanedTasks() {
     this.stats.total_checks++;
-    console.log('  Checking orphaned tasks...');
+    logger.info('  Checking orphaned tasks...');
 
     try {
       // Tasks with project_id that doesn't exist
@@ -515,7 +516,7 @@ class QualityControlService {
         this.stats.issues_detected += reallyOrphaned.length;
         this.detections.tasks.orphaned = reallyOrphaned;
 
-        console.log(`    Found ${reallyOrphaned.length} orphaned tasks`);
+        logger.info('Found  orphaned tasks', { length: reallyOrphaned.length });
 
         if (this.config.schedule.readOnlyMode) {
           reallyOrphaned.forEach(task => {
@@ -528,11 +529,11 @@ class QualityControlService {
         // Phase 2+: Auto-reassign to "Misc" project
 
       } else {
-        console.log('    No orphaned tasks found ✓');
+        logger.info('    No orphaned tasks found ✓');
       }
 
     } catch (error) {
-      console.error('    Error checking orphaned tasks:', error);
+      logger.error('    Error checking orphaned tasks:', { arg0: error });
     }
   }
 
@@ -541,7 +542,7 @@ class QualityControlService {
    */
   async checkTaskRanks() {
     this.stats.total_checks++;
-    console.log('  Checking task ranks...');
+    logger.info('  Checking task ranks...');
 
     try {
       const { data: activeTasks, error } = await supabase
@@ -572,7 +573,7 @@ class QualityControlService {
         this.stats.issues_detected += rankIssues.length;
         this.detections.tasks.rankIssues = rankIssues;
 
-        console.log(`    Found ${rankIssues.length} tasks with incorrect ranks`);
+        logger.info('Found  tasks with incorrect ranks', { length: rankIssues.length });
 
         if (this.config.schedule.readOnlyMode) {
           rankIssues.forEach(item => {
@@ -583,7 +584,7 @@ class QualityControlService {
           });
         } else if (this.config.autoFix.taskRanks) {
           // Phase 2+: Auto-recalculate ranks
-          console.log(`    Auto-fixing ${rankIssues.length} task ranks...`);
+          logger.info('Auto-fixing  task ranks...', { length: rankIssues.length });
 
           for (const item of rankIssues) {
             const beforeState = { ...item.task };
@@ -609,19 +610,19 @@ class QualityControlService {
                 confidence_score: 1.0,
               });
             } else {
-              console.error(`      Failed to update rank for task ${item.task.id}:`, updateError);
+              logger.error('Failed to update rank for task :', { id: item.task.id });
             }
           }
 
-          console.log(`    ✓ Fixed ${this.stats.issues_fixed} task ranks`);
+          logger.info('✓ Fixed  task ranks', { issues_fixed: this.stats.issues_fixed });
         }
 
       } else {
-        console.log('    All task ranks are correct ✓');
+        logger.info('    All task ranks are correct ✓');
       }
 
     } catch (error) {
-      console.error('    Error checking task ranks:', error);
+      logger.error('    Error checking task ranks:', { arg0: error });
     }
   }
 
@@ -634,7 +635,7 @@ class QualityControlService {
    */
   async checkLowSignificanceNarratives() {
     this.stats.total_checks++;
-    console.log('  Checking low-significance narratives...');
+    logger.info('  Checking low-significance narratives...');
 
     try {
       const cutoffDate = new Date();
@@ -649,14 +650,14 @@ class QualityControlService {
 
       if (error) throw error;
       if (!lowSigNarratives || lowSigNarratives.length === 0) {
-        console.log('    No low-significance narratives to prune ✓');
+        logger.info('    No low-significance narratives to prune ✓');
         return;
       }
 
       this.stats.issues_detected += lowSigNarratives.length;
       this.detections.narratives.lowSignificance = lowSigNarratives;
 
-      console.log(`    Found ${lowSigNarratives.length} low-significance narratives`);
+      logger.info('Found  low-significance narratives', { length: lowSigNarratives.length });
 
       if (this.config.schedule.readOnlyMode) {
         // Just log first few as examples
@@ -670,7 +671,7 @@ class QualityControlService {
       // Phase 2+: Delete narratives with no dependencies
 
     } catch (error) {
-      console.error('    Error checking narratives:', error);
+      logger.error('    Error checking narratives:', { arg0: error });
     }
   }
 
@@ -679,15 +680,15 @@ class QualityControlService {
    */
   async checkDuplicateNarratives() {
     this.stats.total_checks++;
-    console.log('  Checking duplicate narratives...');
+    logger.info('  Checking duplicate narratives...');
 
     try {
       // This would require semantic similarity analysis
       // For Phase 1, we'll skip this complex check
-      console.log('    (Implementation pending - requires semantic analysis)');
+      logger.info('    (Implementation pending - requires semantic analysis)');
 
     } catch (error) {
-      console.error('    Error checking duplicate narratives:', error);
+      logger.error('    Error checking duplicate narratives:', { arg0: error });
     }
   }
 
@@ -700,15 +701,15 @@ class QualityControlService {
    */
   async checkDatabaseIntegrity() {
     this.stats.total_checks++;
-    console.log('  Checking database integrity...');
+    logger.info('  Checking database integrity...');
 
     try {
       // This was covered by orphaned tasks check
       // Additional checks could go here (circular references, etc.)
-      console.log('    Database integrity looks good ✓');
+      logger.info('    Database integrity looks good ✓');
 
     } catch (error) {
-      console.error('    Error checking database integrity:', error);
+      logger.error('    Error checking database integrity:', { arg0: error });
     }
   }
 
@@ -912,13 +913,13 @@ class QualityControlService {
       });
 
       if (error) {
-        console.error('      Failed to log action:', error);
+        logger.error('      Failed to log action:', { arg0: error });
       }
 
       // Also track in memory
       this.actions.push(actionData);
     } catch (error) {
-      console.error('      Error logging action:', error);
+      logger.error('      Error logging action:', { arg0: error });
     }
   }
 
@@ -927,7 +928,7 @@ class QualityControlService {
    */
   async dismissTask(taskId, reasoning) {
     if (this.config.schedule.readOnlyMode) {
-      console.log(`    [READ-ONLY] Would dismiss task ${taskId}: ${reasoning}`);
+      logger.info('[READ-ONLY] Would dismiss task :', { taskId: taskId, reasoning: reasoning });
       return;
     }
 
@@ -1074,7 +1075,7 @@ class QualityControlService {
       .rpc('start_qc_run', { config: this.config });
 
     if (error) {
-      console.error('Failed to start QC run:', error);
+      logger.error('Failed to start QC run:', { arg0: error });
       return null;
     }
 

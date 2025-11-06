@@ -7,6 +7,7 @@
 
 const { createClient } = require('@supabase/supabase-js');
 const pdlClient = require('./pdl-client');
+const logger = require('../utils/logger').service('contact-enrichment');
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_KEY;
@@ -75,7 +76,7 @@ async function updateLastSeen(contactId) {
     .eq('id', contactId);
 
   if (error) {
-    console.error(`  ⚠️  Failed to update last_seen for contact ${contactId}:`, error.message);
+    logger.error('⚠️  Failed to update last_seen for contact :', { contactId: contactId });
   }
 }
 
@@ -103,7 +104,7 @@ async function saveContact(email, name, enrichmentData) {
     .single();
 
   if (error) {
-    console.error(`  ❌ Failed to save contact ${email}:`, error.message);
+    logger.error('❌ Failed to save contact :', { email: email });
     throw error;
   }
 
@@ -125,7 +126,7 @@ async function logApiUsage(email, contactId, status, success, errorMessage = nul
     }]);
 
   if (error) {
-    console.error(`  ⚠️  Failed to log API usage:`, error.message);
+    logger.error('⚠️  Failed to log API usage:');
   }
 }
 
@@ -136,7 +137,7 @@ async function getMonthlyUsage() {
   const { data, error } = await supabase.rpc('get_monthly_pdl_usage');
 
   if (error) {
-    console.error('  ⚠️  Failed to get monthly usage:', error.message);
+    logger.error('  ⚠️  Failed to get monthly usage:', { arg0: error.message });
     return 0;
   }
 
@@ -171,7 +172,7 @@ async function enrichAttendee(attendee) {
 
     if (cachedContact) {
       // Cache hit! Use cached data
-      console.log(`  💾 Cache hit: ${email}`);
+      logger.info('💾 Cache hit:', { email: email });
 
       // Update last_seen_at
       await updateLastSeen(cachedContact.id);
@@ -187,12 +188,12 @@ async function enrichAttendee(attendee) {
     }
 
     // Cache miss - need to enrich
-    console.log(`  🆕 New contact: ${email}`);
+    logger.info('🆕 New contact:', { email: email });
 
     // Check if we have API calls remaining
     const canCall = await canMakeApiCall();
     if (!canCall) {
-      console.warn(`  ⚠️  Monthly API limit reached (100/100). Skipping enrichment for ${email}`);
+      logger.warn('⚠️  Monthly API limit reached (100/100). Skipping enrichment for', { email: email });
 
       // Save to contacts table without enrichment
       await saveContact(email, name, { found: false, status: 429, error: 'Rate limit' });
@@ -230,7 +231,7 @@ async function enrichAttendee(attendee) {
     return attendee;
 
   } catch (error) {
-    console.error(`  ❌ Enrichment error for ${email}:`, error.message);
+    logger.error('❌ Enrichment error for :', { email: email });
     return attendee; // Return as-is on error
   }
 }
@@ -248,7 +249,7 @@ async function enrichAttendees(attendees) {
 
   // Get current usage for logging
   const currentUsage = await getMonthlyUsage();
-  console.log(`📊 PDL API Usage: ${currentUsage}/100 this month`);
+  logger.debug('📊 PDL API Usage: /100 this month', { currentUsage: currentUsage });
 
   // Process attendees sequentially (to avoid race conditions with DB)
   const enrichedAttendees = [];
@@ -272,13 +273,13 @@ async function enrichCalendarEvents(events) {
     return [];
   }
 
-  console.log(`\n🌟 Enriching attendees for ${events.length} events...`);
+  logger.info('\n🌟 Enriching attendees for  events...', { length: events.length });
 
   const enrichedEvents = [];
 
   for (const event of events) {
     if (event.attendees && event.attendees.length > 0) {
-      console.log(`\n📅 Event: ${event.summary || 'No title'} (${event.attendees.length} attendees)`);
+      logger.info('\n📅 Event:  ( attendees)', { summary || 'No title': event.summary || 'No title', length: event.attendees.length });
       const enrichedAttendees = await enrichAttendees(event.attendees);
 
       enrichedEvents.push({
@@ -292,7 +293,7 @@ async function enrichCalendarEvents(events) {
   }
 
   const finalUsage = await getMonthlyUsage();
-  console.log(`\n✅ Enrichment complete. API usage: ${finalUsage}/100 this month\n`);
+  logger.info('\n✅ Enrichment complete. API usage: /100 this month\n', { finalUsage: finalUsage });
 
   return enrichedEvents;
 }

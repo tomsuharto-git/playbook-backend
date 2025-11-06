@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+const logger = require('../../utils/logger');
+
 /**
  * Check if Phase 1 migration tables exist
  */
@@ -7,7 +9,7 @@
 const { supabase } = require('./db/supabase-client');
 
 async function checkTables() {
-  console.log('\n🔍 Checking for new tables...\n');
+  logger.debug('\n🔍 Checking for new tables...\n');
 
   const tables = [
     { name: 'events', description: 'Calendar events and meetings' },
@@ -25,34 +27,36 @@ async function checkTables() {
         .select('*', { count: 'exact', head: true });
 
       if (error) {
-        console.log(`❌ ${table.name}: NOT FOUND`);
-        console.log(`   ${table.description}`);
+        logger.error('❌ : NOT FOUND', { name: table.name });
+        logger.info('', { description: table.description });
         allExist = false;
       } else {
-        console.log(`✅ ${table.name}: EXISTS (${count || 0} records)`);
-        console.log(`   ${table.description}`);
+        logger.info('✅ : EXISTS ( records)', { name: table.name, count || 0: count || 0 });
+        logger.info('', { description: table.description });
       }
     } catch (err) {
-      console.log(`❌ ${table.name}: ERROR - ${err.message}`);
+      logger.error('❌ : ERROR -', { name: table.name, message: err.message });
       allExist = false;
     }
   }
 
-  console.log('\n' + '='.repeat(50));
+  logger.info('\n' + '='.repeat(50));
 
   if (allExist) {
-    console.log('✅ All tables exist! Migration successful.');
-    console.log('\nYou can now run: node test-phase1.js');
+    logger.info('✅ All tables exist! Migration successful.');
+    logger.info('\nYou can now run: node test-phase1.js');
   } else {
-    console.log('⚠️  Some tables are missing.');
-    console.log('\nPlease run the migration in Supabase Dashboard:');
-    console.log('1. Go to: https://supabase.com/dashboard/project/oavmcziiaksutuntwlbl');
-    console.log('2. Click "SQL Editor" in the left sidebar');
-    console.log('3. Copy contents of: migrations/migration_009_three_entity_architecture.sql');
-    console.log('4. Paste and click "Run"');
+    logger.warn('⚠️  Some tables are missing.');
+    logger.info('\nPlease run the migration in Supabase Dashboard:');
+    logger.info('1. Go to: https://supabase.com/dashboard/project/oavmcziiaksutuntwlbl');
+    logger.info('2. Click "SQL Editor" in the left sidebar');
+    logger.info('3. Copy contents of: migrations/migration_009_three_entity_architecture.sql');
+    logger.info('4. Paste and click "Run"');
   }
 
-  console.log('='.repeat(50) + '\n');
+  logger.info('='.repeat(50) + '\n');
 }
 
-checkTables().catch(console.error);
+checkTables().catch(error => {
+  logger.error('❌ Script failed', { error: error.message, stack: error.stack });
+});

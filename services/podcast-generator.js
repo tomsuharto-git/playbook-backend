@@ -18,6 +18,7 @@ const weatherService = require('./weather-service');
 const claudeWriter = require('./claude-podcast-writer');
 const elevenLabsTTS = require('./elevenlabs-tts');
 const audioConcatenator = require('./audio-concatenator');
+const logger = require('../utils/logger').service('podcast-generator');
 const { fetchTodaysEvents } = require('./google-calendar');
 
 class PodcastGenerator {
@@ -36,7 +37,7 @@ class PodcastGenerator {
    */
   async generateMorningPodcast() {
     const today = new Date().toISOString().split('T')[0];
-    console.log(`\n🎙️  Generating morning podcast for ${today}...`);
+    logger.info('\n🎙️  Generating morning podcast for ...', { today: today });
 
     try {
       // Check if podcast already exists for today
@@ -47,16 +48,16 @@ class PodcastGenerator {
         .single();
 
       if (existing && existing.status !== 'failed') {
-        console.log(`   ⏭️  Podcast already exists (status: ${existing.status})`);
+        logger.info('⏭️  Podcast already exists (status: )', { status: existing.status });
         return existing;
       }
 
       // Fetch all required data
-      console.log('   📊 Gathering data...');
+      logger.debug('   📊 Gathering data...');
       const data = await this.fetchPodcastData(today);
 
       // Build markdown content
-      console.log('   ✍️  Building podcast script...');
+      logger.info('   ✍️  Building podcast script...');
       const markdown = await this.buildPodcastMarkdown(data);
 
       // Save to database
@@ -77,8 +78,8 @@ class PodcastGenerator {
         throw new Error(`Database error: ${error.message}`);
       }
 
-      console.log('   ✅ Podcast markdown generated');
-      console.log(`   📝 ${markdown.length} characters`);
+      logger.info('   ✅ Podcast markdown generated');
+      logger.debug('📝  characters', { length: markdown.length });
 
       return {
         id: podcast.id,
@@ -89,7 +90,7 @@ class PodcastGenerator {
       };
 
     } catch (error) {
-      console.error('   ❌ Podcast generation failed:', error.message);
+      logger.error('   ❌ Podcast generation failed:', { arg0: error.message });
 
       // Save error to database
       await supabase
@@ -145,7 +146,8 @@ class PodcastGenerator {
 
     // Phase 2: Load events from normalized events table using event_ids
     if (briefData?.event_ids && briefData.event_ids.length > 0) {
-      console.log(`   📊 Fetching ${briefData.event_ids.length} events from events table...`);
+      const eventIdCount = briefData.event_ids.length;
+      logger.debug('📊 Fetching events from events table...', { eventIdCount: eventIdCount });
 
       const { data: events, error: eventsError } = await supabase
         .from('events')
@@ -161,7 +163,7 @@ class PodcastGenerator {
         .order('start_time', { ascending: true });
 
       if (eventsError) {
-        console.error(`   ⚠️  Error loading events:`, eventsError.message);
+        logger.error('⚠️  Error loading events:');
       } else if (events && events.length > 0) {
         // Map Phase 2 events table structure to expected podcast format
         calendarEvents = events.map(e => {
@@ -188,7 +190,8 @@ class PodcastGenerator {
             attendees: e.attendees || []
           };
         });
-        console.log(`   ✅ Loaded ${events.length} events from events table`);
+        const loadedEventCount = events.length;
+        logger.info('✅ Loaded events from events table', { loadedEventCount: loadedEventCount });
       }
     }
 
@@ -197,10 +200,12 @@ class PodcastGenerator {
     try {
       const targetDate = new Date(date + 'T12:00:00');
       googleEvents = await fetchTodaysEvents(targetDate);
-      console.log(`   📧 Google Calendar: ${googleEvents.length} events`);
-      console.log(`   📧 Database events: ${calendarEvents.length} events`);
+      const googleEventCount = googleEvents.length;
+      const dbEventCount = calendarEvents.length;
+      logger.info('📧 Google Calendar events', { googleEventCount: googleEventCount });
+      logger.info('📧 Database events', { dbEventCount: dbEventCount });
     } catch (error) {
-      console.error(`   ⚠️  Google Calendar fetch failed:`, error.message);
+      logger.error('⚠️  Google Calendar fetch failed:');
     }
 
     // Combine both calendars
@@ -631,7 +636,7 @@ Lock in. Make it count. You've got this.`;
   async generatePodcastWithClaudeScript(markdown, date) {
     const podcastDate = date || new Date().toISOString().split('T')[0];
 
-    console.log('\n🎙️  Generating podcast with Claude script + TTS...');
+    logger.info('\n🎙️  Generating podcast with Claude script + TTS...');
 
     try {
       // Check if ffmpeg is available
@@ -641,21 +646,25 @@ Lock in. Make it count. You've got this.`;
       }
 
       // Step 1: Have Claude write the conversational script
-      console.log('\n📝 Step 1: Writing conversational script with Claude...');
+      logger.debug('\n📝 Step 1: Writing conversational script with Claude...');
       const script = await claudeWriter.writeScript(markdown, podcastDate);
 
-      console.log(`   ✅ Script written: ${script.dialogue.length} dialogue exchanges`);
-      console.log(`   ⏱️  Estimated duration: ${Math.floor(script.estimatedDuration / 60)}m ${script.estimatedDuration % 60}s`);
+      const dialogueCount = script.dialogue.length;
+      logger.info('✅ Script written dialogue exchanges', { dialogueCount: dialogueCount });
+      const minutes = Math.floor(script.estimatedDuration / 60);
+      const seconds = script.estimatedDuration % 60;
+      logger.info('⏱️  Estimated duration m s', { minutes: minutes, seconds: seconds });
 
       // Step 2: Generate TTS for each dialogue line
-      console.log('\n🎤 Step 2: Generating TTS audio for each line...');
+      logger.info('\n🎤 Step 2: Generating TTS audio for each line...');
       const segmentsDir = path.join(__dirname, '../temp', `podcast_${podcastDate}`);
       const audioPaths = await elevenLabsTTS.generateDialogueAudio(script.dialogue, segmentsDir);
 
-      console.log(`   ✅ Generated ${audioPaths.length} audio segments`);
+      const segmentCount = audioPaths.length;
+      logger.info('✅ Generated audio segments', { segmentCount: segmentCount });
 
       // Step 3: Concatenate all audio segments
-      console.log('\n🎬 Step 3: Concatenating audio segments...');
+      logger.info('\n🎬 Step 3: Concatenating audio segments...');
       const outputPath = path.join(__dirname, '../podcasts', `podcast_${podcastDate}.mp3`);
 
       // Ensure podcasts directory exists
@@ -669,7 +678,7 @@ Lock in. Make it count. You've got this.`;
       try {
         await fs.access(introPath);
         musicOptions.intro = introPath;
-        console.log('   🎵 Intro music found');
+        logger.info('   🎵 Intro music found');
       } catch (e) {
         // No intro music
       }
@@ -677,17 +686,17 @@ Lock in. Make it count. You've got this.`;
       try {
         await fs.access(outroPath);
         musicOptions.outro = outroPath;
-        console.log('   🎵 Outro music found');
+        logger.info('   🎵 Outro music found');
       } catch (e) {
         // No outro music
       }
 
       const concatenationResult = await audioConcatenator.concatenate(audioPaths, outputPath, musicOptions);
 
-      console.log(`   ✅ Final podcast created: ${outputPath}`);
+      logger.info('✅ Final podcast created:', { outputPath: outputPath });
 
       // Step 4: Clean up temporary segments
-      console.log('\n🧹 Step 4: Cleaning up temporary files...');
+      logger.info('\n🧹 Step 4: Cleaning up temporary files...');
       await audioConcatenator.cleanupSegments(audioPaths);
 
       // Remove temp directory
@@ -697,7 +706,7 @@ Lock in. Make it count. You've got this.`;
         // Ignore if directory not empty or doesn't exist
       }
 
-      console.log('\n✅ Podcast generation complete!');
+      logger.info('\n✅ Podcast generation complete!');
 
       return {
         success: true,
@@ -708,7 +717,7 @@ Lock in. Make it count. You've got this.`;
       };
 
     } catch (error) {
-      console.error('\n❌ Podcast generation failed:', error.message);
+      logger.error('\n❌ Podcast generation failed:', { arg0: error.message });
       throw error;
     }
   }
@@ -954,10 +963,10 @@ DIGRESSION RULES:
 
       return response.data;
     } catch (error) {
-      console.error('   ❌ ElevenLabs API Error Details:');
-      console.error('   Status:', error.response?.status);
-      console.error('   Message:', error.response?.data?.detail?.message || error.response?.data?.message || error.message);
-      console.error('   Full response:', JSON.stringify(error.response?.data, null, 2));
+      logger.error('   ❌ ElevenLabs API Error Details:');
+      logger.error('   Status:');
+      logger.error('   Message:');
+      logger.error('   Full response:', { arg1: null });
       throw error;
     }
   }

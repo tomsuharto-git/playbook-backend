@@ -1,3 +1,5 @@
+const logger = require('../../utils/logger');
+
 const { supabase } = require('./db/supabase-client');
 
 (async () => {
@@ -8,16 +10,16 @@ const { supabase } = require('./db/supabase-client');
     .order('name');
 
   data.forEach(p => {
-    console.log(`\n📋 ${p.name}:`);
+    logger.info('\n📋 :', { name: p.name });
     if (p.narrative && p.narrative.length > 0) {
-      console.log(`   Total narratives: ${p.narrative.length}`);
+      logger.info('Total narratives:', { length: p.narrative.length });
       p.narrative.slice(0, 5).forEach((n, i) => {
-        console.log(`  ${i+1}. Source: ${n.source || 'undefined'}`);
-        console.log(`     Date: ${n.date}`);
-        console.log(`     Headline: ${n.headline}`);
+        logger.info('. Source:', { i+1: i+1, source || 'undefined': n.source || 'undefined' });
+        logger.info('Date:', { date: n.date });
+        logger.info('Headline:', { headline: n.headline });
       });
     } else {
-      console.log('  No narratives');
+      logger.info('  No narratives');
     }
   });
   process.exit(0);

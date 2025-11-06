@@ -5,6 +5,7 @@
  */
 
 const cron = require('node-cron');
+const logger = require('../utils/logger').job('generate-briefings');
 const { supabase } = require('../db/supabase-client');
 const { fetchTodaysEvents } = require('../services/google-calendar');
 const { fetchOutlookEventsForDate } = require('../services/outlook-calendar');
@@ -20,13 +21,13 @@ let isGenerating = false;
 async function generateBriefings() {
   // Check if another job is already running
   if (isGenerating) {
-    console.log('⏭️  Briefing generation already in progress, skipping this run');
+    logger.info('⏭️  Briefing generation already in progress, skipping this run');
     return { success: false, message: 'Already running' };
   }
 
   isGenerating = true;
-  console.log('\n📅 Brief generation job starting...');
-  console.log('🔒 Acquired generation lock');
+  logger.info('\n📅 Brief generation job starting...');
+  logger.info('🔒 Acquired generation lock');
 
   try {
     const daysAhead = 2; // Today + Tomorrow
@@ -49,23 +50,25 @@ async function generateBriefings() {
         timeZone: 'America/New_York'
       }).format(targetDate);
 
-      console.log(`\n  📆 Processing ${dateStr}...`);
+      logger.info('\n  📆 Processing ...', { dateStr: dateStr });
 
       // 1. Fetch from both calendar sources in parallel
       const [googleEvents, outlookEvents] = await Promise.all([
         // Fetch Google Calendar events
         fetchTodaysEvents(targetDate).catch(error => {
-          console.error(`     ⚠️  Google Calendar failed:`, error.message);
+          logger.error('⚠️  Google Calendar failed:');
           return [];
         }),
         // Fetch Outlook events from Google Drive
         fetchOutlookEventsForDate(dateStr).catch(error => {
-          console.error(`     ⚠️  Outlook Calendar failed:`, error.message);
+          logger.error('⚠️  Outlook Calendar failed:');
           return [];
         })
       ]);
 
-      console.log(`     Sources: ${googleEvents.length} Google + ${outlookEvents.length} Outlook`);
+      const googleCount = googleEvents.length;
+      const outlookCount = outlookEvents.length;
+      logger.info('Sources Google + Outlook', { googleCount: googleCount, outlookCount: outlookCount });
 
       // 2. Combine and deduplicate events
       let allEvents = deduplicateEvents([...googleEvents, ...outlookEvents]);
@@ -85,51 +88,56 @@ async function generateBriefings() {
 
         // Filter 1: Exclude specific titles (case-insensitive and trimmed)
         if (excludedTitles.some(excluded => trimmedTitle.toLowerCase() === excluded.toLowerCase())) {
-          console.log(`     🚫 Excluded by title: "${title}"`);
+          logger.info('🚫 Excluded by title: ""', { title: title });
           return false;
         }
 
         // Filter 2: Must have a valid title (not empty, not "No Title")
         if (!title || title.trim() === '' || title === 'No Title' || title.trim() === 'No Title') {
-          console.log(`     🚫 Invalid title: "${title}"`);
+          logger.info('🚫 Invalid title: ""', { title: title });
           return false;
         }
 
         // Filter 3: Must have a valid start time
         const hasValidStartTime = event.start?.dateTime || event.start?.date;
         if (!hasValidStartTime) {
-          console.log(`     🚫 No start time: "${title}"`);
+          logger.info('🚫 No start time: ""', { title: title });
           return false;
         }
 
         return true;
       });
 
-      console.log(`     📊 Total after filtering: ${dayEvents.length} events`);
+      const filteredEventCount = dayEvents.length;
+      logger.debug('📊 Total after filtering events', { filteredEventCount: filteredEventCount });
 
       // 5. Enrich attendees with PDL data
       dayEvents = await enrichCalendarEvents(dayEvents);
 
       // 6. Detect projects for each event
-      console.log(`     🔍 Detecting projects for ${dayEvents.length} events...`);
+      const dayEventCount = dayEvents.length;
+      logger.debug('🔍 Detecting projects for events...', { dayEventCount: dayEventCount });
       for (const event of dayEvents) {
         const eventTitle = event.summary || event.subject || 'No Title';
-        console.log(`        Checking: "${eventTitle}"`);
+        logger.info('Checking: ""', { eventTitle: eventTitle });
 
         const projectMatch = await detectProject(event);
         if (projectMatch) {
-          console.log(`        ✓ Project matched: ${projectMatch.name} (confidence: ${projectMatch.confidence})`);
+          logger.info('✓ Project matched (confidence)', { name: projectMatch.name, confidence: projectMatch.confidence });
 
           // Enrich event with project information
           const enrichedEvent = await enrichEventWithProject(event, projectMatch);
-          console.log(`        ✓ Enriched event has project_name: ${enrichedEvent.project_name || 'MISSING!'}`);
-          console.log(`        ✓ Enriched event has project_color: ${enrichedEvent.project_color || 'MISSING!'}`);
+          const projectName = enrichedEvent.project_name || 'MISSING!';
+          const projectColor = enrichedEvent.project_color || 'MISSING!';
+          logger.info('✓ Enriched event has project_name:', { projectName: projectName });
+          logger.info('✓ Enriched event has project_color:', { projectColor: projectColor });
 
           // Copy properties back to original event
           Object.assign(event, enrichedEvent);
-          console.log(`        ✓ After Object.assign, event.project_name: ${event.project_name || 'MISSING!'}`);
+          const eventProjectName = event.project_name || 'MISSING!';
+          logger.info('✓ After Object.assign, event.project_name:', { eventProjectName: eventProjectName });
         } else {
-          console.log(`        ℹ️  No project match`);
+          logger.info('ℹ️  No project match');
         }
       }
 
@@ -179,20 +187,25 @@ async function generateBriefings() {
       const workEvents = dayEvents.filter(isWorkEvent);
       const lifeEvents = dayEvents.filter(e => !isWorkEvent(e));
 
-      console.log(`     📊 Categorization: ${workEvents.length} Work, ${lifeEvents.length} Life`);
-      console.log(`     💡 Only generating briefings for Work events (cost savings)`);
+      const workCount = workEvents.length;
+      const lifeCount = lifeEvents.length;
+      logger.debug('📊 Categorization Work, Life', { workCount: workCount, lifeCount: lifeCount });
+      logger.info('💡 Only generating briefings for Work events (cost savings)');
 
       // 9. Determine which WORK events need briefings (Life events get no briefings)
       const eventsNeedingBriefings = workEvents.filter(e => !cachedBriefingsMap.has(e.id));
       const eventsWithCachedBriefings = workEvents.filter(e => cachedBriefingsMap.has(e.id));
 
-      console.log(`     ♻️  Cached briefings: ${eventsWithCachedBriefings.length}`);
-      console.log(`     🆕 Need generation: ${eventsNeedingBriefings.length}`);
+      const cachedCount = eventsWithCachedBriefings.length;
+      const needGenerationCount = eventsNeedingBriefings.length;
+      logger.info('♻️  Cached briefings:', { cachedCount: cachedCount });
+      logger.info('🆕 Need generation:', { needGenerationCount: needGenerationCount });
 
       // 10. Generate briefings for new WORK events only
       let newlyEnrichedEvents = [];
       if (eventsNeedingBriefings.length > 0) {
-        console.log(`     🤖 Generating ${eventsNeedingBriefings.length} new briefings...`);
+        const newBriefingCount = eventsNeedingBriefings.length;
+        logger.info('🤖 Generating new briefings...', { newBriefingCount: newBriefingCount });
         newlyEnrichedEvents = await generateEventBriefings(eventsNeedingBriefings);
       }
 
@@ -224,7 +237,7 @@ async function generateBriefings() {
           const hasValidTime = event.start?.dateTime || event.start?.date;
 
           if (!hasValidTitle || !hasValidTime) {
-            console.log(`     🚫 [LAYER 2] Blocking invalid event from save: "${title}" (hasTitle: ${hasValidTitle}, hasTime: ${hasValidTime})`);
+            logger.info('🚫 [LAYER 2] Blocking invalid event from save (hasTitle, hasTime)', { title: title, hasValidTitle: hasValidTitle, hasValidTime: hasValidTime });
             return false;
           }
 
@@ -233,15 +246,17 @@ async function generateBriefings() {
 
         const blockedCount = enrichedEvents.length - validEvents.length;
         if (blockedCount > 0) {
-          console.log(`     🛡️  [LAYER 2] Blocked ${blockedCount} invalid event(s) before database save`);
+          logger.info('🛡️  [LAYER 2] Blocked invalid event(s) before database save', { blockedCount: blockedCount });
         }
 
         // Log what we're about to save
-        console.log(`     💾 Saving ${validEvents.length} valid events to persistent table...`);
+        const validEventCount = validEvents.length;
+        logger.info('💾 Saving valid events to persistent table...', { validEventCount: validEventCount });
         const eventsWithProjects = validEvents.filter(e => e.project_name);
-        console.log(`        Events with projects: ${eventsWithProjects.length}`);
+        const projectEventCount = eventsWithProjects.length;
+        logger.info('Events with projects:', { projectEventCount: projectEventCount });
         eventsWithProjects.forEach(e => {
-          console.log(`        - "${e.summary}" → ${e.project_name} (${e.project_color})`);
+          logger.info('- "" →  ()', { summary: e.summary, project_name: e.project_name, project_color: e.project_color });
         });
 
         // PHASE 2: Upsert each event to events table (normalized storage)
@@ -272,7 +287,7 @@ async function generateBriefings() {
           const externalId = event.id;
 
           if (!externalId) {
-            console.log(`     ⚠️  Skipping event without external ID: ${event.summary}`);
+            logger.warn('⚠️  Skipping event without external ID:', { summary: event.summary });
             skippedEventCount++;
             continue;
           }
@@ -282,7 +297,7 @@ async function generateBriefings() {
           const endTime = parseDateTime(event.end || event.start);
 
           if (!startTime) {
-            console.log(`     ⚠️  Skipping event without valid start time: ${event.summary}`);
+            logger.warn('⚠️  Skipping event without valid start time:', { summary: event.summary });
             skippedEventCount++;
             continue;
           }
@@ -319,7 +334,7 @@ async function generateBriefings() {
               .single();
 
             if (insertError) {
-              console.error(`     ❌ Error inserting event "${event.summary}":`, insertError.message);
+              logger.error('❌ Error inserting event "":', { summary: event.summary });
               skippedEventCount++;
             } else {
               eventIds.push(inserted.id);
@@ -340,7 +355,7 @@ async function generateBriefings() {
                 .eq('id', existingEvent.id);
 
               if (updateError) {
-                console.error(`     ❌ Error updating event "${event.summary}":`, updateError.message);
+                logger.error('❌ Error updating event "":', { summary: event.summary });
                 skippedEventCount++;
               } else {
                 eventIds.push(existingEvent.id);
@@ -353,7 +368,8 @@ async function generateBriefings() {
           }
         }
 
-        console.log(`     📊 Event processing: ${newEventCount} new, ${updatedEventCount} updated, ${validEvents.length - newEventCount - updatedEventCount - skippedEventCount} unchanged, ${skippedEventCount} skipped`);
+        const unchangedCount = validEvents.length - newEventCount - updatedEventCount - skippedEventCount;
+        logger.debug('📊 Event processing new, updated, unchanged, skipped', { newEventCount: newEventCount, updatedEventCount: updatedEventCount, unchangedCount: unchangedCount, skippedEventCount: skippedEventCount });
 
         // FIX 3: VALIDATION - Don't update if too many events failed
         const successfulEventCount = eventIds.length;
@@ -361,12 +377,16 @@ async function generateBriefings() {
         const failureRate = totalEventCount > 0 ? (totalEventCount - successfulEventCount) / totalEventCount : 0;
 
         if (failureRate > 0.3) {
-          console.error(`     🚨 CRITICAL: ${(failureRate * 100).toFixed(1)}% event failure rate (${totalEventCount - successfulEventCount}/${totalEventCount} failed)`);
-          console.error(`     ⚠️  Skipping daily_briefs update to prevent data loss`);
-          console.error(`     ℹ️  Existing event_ids will be preserved until next successful run`);
+          const failurePercent = (failureRate * 100).toFixed(1);
+          const failedCount = totalEventCount - successfulEventCount;
+          logger.error('🚨 CRITICAL event failure rate (failed / total)', { failurePercent: failurePercent, failedCount: failedCount, totalEventCount: totalEventCount });
+          logger.error('⚠️  Skipping daily_briefs update to prevent data loss');
+          logger.error('ℹ️  Existing event_ids will be preserved until next successful run');
           continue; // Skip to next date
         } else if (failureRate > 0) {
-          console.log(`     ⚠️  Warning: ${(failureRate * 100).toFixed(1)}% event failure rate (${totalEventCount - successfulEventCount}/${totalEventCount} failed) - within acceptable threshold`);
+          const failurePercent = (failureRate * 100).toFixed(1);
+          const failedCount = totalEventCount - successfulEventCount;
+          logger.error('⚠️  Warning event failure rate (failed / total) - within acceptable threshold', { failurePercent: failurePercent, failedCount: failedCount, totalEventCount: totalEventCount });
         }
 
         // FIX 2: MERGE-AWARE UPSERT - Preserve existing event_ids
@@ -380,9 +400,13 @@ async function generateBriefings() {
         // Merge existing event_ids with new ones
         let mergedEventIds = eventIds;
         if (existingBrief?.event_ids && Array.isArray(existingBrief.event_ids)) {
-          console.log(`     🔄 Merging with ${existingBrief.event_ids.length} existing event_ids`);
+          const existingCount = existingBrief.event_ids.length;
+          logger.info('🔄 Merging with existing event_ids', { existingCount: existingCount });
           mergedEventIds = [...new Set([...existingBrief.event_ids, ...eventIds])];
-          console.log(`     ✓ Deduplicated: ${existingBrief.event_ids.length} existing + ${eventIds.length} new = ${mergedEventIds.length} total`);
+          const existingIdCount = existingBrief.event_ids.length;
+          const newIdCount = eventIds.length;
+          const mergedCount = mergedEventIds.length;
+          logger.info('✓ Deduplicated existing + new = total', { existingIdCount: existingIdCount, newIdCount: newIdCount, mergedCount: mergedCount });
         }
 
         // Phase 2: Update daily_briefs with event references only
@@ -396,25 +420,26 @@ async function generateBriefings() {
             onConflict: 'date'
           });
 
-        console.log(`     ✅ Saved ${mergedEventIds.length} event references to daily_briefs`);
+        const savedCount = mergedEventIds.length;
+        logger.info('✅ Saved event references to daily_briefs', { savedCount: savedCount });
       } catch (err) {
-        console.error(`     ⚠️  Failed to save briefings:`, err.message);
+        logger.error('⚠️  Failed to save briefings:');
       }
 
       eventsByDate[dateStr] = enrichedEvents;
     }
 
     const totalEvents = Object.values(eventsByDate).flat().length;
-    console.log(`\n✅ Brief generation complete: ${totalEvents} events processed\n`);
+    logger.info('\n✅ Brief generation complete events processed\n', { totalEvents: totalEvents });
 
     return { success: true, totalEvents };
 
   } catch (error) {
-    console.error('❌ Brief generation job failed:', error);
+    logger.error('❌ Brief generation job failed:', { arg0: error });
     return { success: false, error: error.message };
   } finally {
     isGenerating = false;
-    console.log('🔓 Released generation lock');
+    logger.info('🔓 Released generation lock');
   }
 }
 
@@ -435,7 +460,7 @@ function scheduleBriefingGeneration() {
     }
   );
 
-  console.log('⏰ Brief generation scheduled (6am, 12pm, 6pm ET)');
+  logger.info('⏰ Brief generation scheduled (6am, 12pm, 6pm ET)');
 
   return schedule;
 }

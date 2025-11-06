@@ -1,3 +1,5 @@
+const logger = require('../../utils/logger');
+
 require('dotenv').config();
 const { supabase } = require('./db/supabase-client');
 
@@ -8,7 +10,7 @@ async function check() {
     .eq('date', '2025-10-13')
     .single();
 
-  console.log('🔍 Checking duplicate events for Oct 13:\n');
+  logger.debug('🔍 Checking duplicate events for Oct 13:\n');
 
   // Group by title
   const grouped = {};
@@ -20,11 +22,11 @@ async function check() {
   // Show duplicates with start times
   Object.entries(grouped).forEach(([title, events]) => {
     if (events.length > 1) {
-      console.log(`\n📅 ${title}:`);
+      logger.info('\n📅 :', { title: title });
       events.forEach(e => {
         const startTime = e.start?.dateTime || e.start?.date || 'No time';
-        console.log(`  [${e.calendar_category}] Start: ${startTime}`);
-        console.log(`    Dedup key: "${title.toLowerCase().trim()}|${startTime}"`);
+        logger.info('[] Start:', { calendar_category: e.calendar_category, startTime: startTime });
+        logger.info('Dedup key: "|"', { trim(): title.toLowerCase().trim(), startTime: startTime });
       });
     }
   });

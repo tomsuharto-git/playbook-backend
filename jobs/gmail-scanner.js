@@ -10,6 +10,7 @@ const Anthropic = require('@anthropic-ai/sdk');
 const { supabase } = require('../db/supabase-client');
 const gmailClient = require('../services/gmail-client');
 const cron = require('node-cron');
+const logger = require('../utils/logger').job('gmail-scanner');
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -41,8 +42,8 @@ async function filterNewEmails(emails) {
     .in('email_id', emailIds);
 
   if (error) {
-    console.error('   ⚠️  Error checking processed emails:', error.message);
-    console.error('   ⚠️  WARNING: Processing all emails as fail-safe (DB query failed)');
+    logger.error('   ⚠️  Error checking processed emails:', { arg0: error.message });
+    logger.error('   ⚠️  WARNING: Processing all emails as fail-safe (DB query failed)');
     return emails; // Fail-safe: process all if query fails
   }
 
@@ -78,13 +79,13 @@ async function markEmailAsProcessed(email, analysis) {
     .select();
 
   if (error) {
-    console.error('   ⚠️  Error marking email as processed:', error.message);
+    logger.error('   ⚠️  Error marking email as processed:', { arg0: error.message });
     // Don't throw - this is logging only, shouldn't block task creation
   }
 }
 
 async function scanGmailAndSummarize() {
-  console.log('📧 Gmail scan starting...');
+  logger.info('📧 Gmail scan starting...');
   
   try {
     // Ensure directory exists
@@ -97,26 +98,26 @@ async function scanGmailAndSummarize() {
     const domainQuery = IMPORTANT_DOMAINS.map(d => `from:${d}`).join(' OR ');
     const query = `after:${timestamp} -category:promotions (is:important (${domainQuery}) OR subject:(urgent OR "action required" OR meeting OR deadline OR rsvp))`;
     
-    console.log(`   Query: ${query}`);
+    logger.info('Query:', { query: query });
     
     // Search Gmail via API
     const emails = await gmailClient.search(query, 50);
-    console.log(`   Found: ${emails.length} emails`);
+    logger.info('Found:  emails', { length: emails.length });
 
     if (emails.length === 0) {
-      console.log('✅ No emails found in this scan window');
+      logger.info('✅ No emails found in this scan window');
       return 0;
     }
 
     // Filter out already-processed emails
     const newEmails = await filterNewEmails(emails);
-    console.log(`\n   📊 Email Filtering:`);
-    console.log(`      New emails: ${newEmails.length}`);
-    console.log(`      Already processed: ${emails.length - newEmails.length}`);
-    console.log(`      API calls saved: ${emails.length - newEmails.length}`);
+    logger.debug('\n   📊 Email Filtering:');
+    logger.info('New emails:', { length: newEmails.length });
+    logger.info('Already processed:', { length: emails.length - newEmails.length });
+    logger.info('API calls saved:', { length: emails.length - newEmails.length });
 
     if (newEmails.length === 0) {
-      console.log('✅ No new emails to process (all already processed)');
+      logger.info('✅ No new emails to process (all already processed)');
       return 0;
     }
 
@@ -126,13 +127,13 @@ async function scanGmailAndSummarize() {
     return notesCreated;
     
   } catch (error) {
-    console.error('❌ Gmail scan error:', error.message);
+    logger.error('❌ Gmail scan error:', { arg0: error.message });
     return 0;
   }
 }
 
 async function processGmailResults(emails) {
-  console.log(`📧 Processing ${emails.length} emails...`);
+  logger.info('📧 Processing  emails...', { length: emails.length });
   
   let notesCreated = 0;
   
@@ -154,15 +155,15 @@ async function processGmailResults(emails) {
         await markEmailAsProcessed(email, analysis);
 
         notesCreated++;
-        console.log(`   ✓ ${path.basename(notePath)} → ${analysis.project?.name || 'No project'}`);
+        logger.info('✓  →', { basename(notePath): path.basename(notePath), name || 'No project': analysis.project?.name || 'No project' });
       }
       
     } catch (error) {
-      console.error(`   ❌ Error processing ${email.subject}:`, error.message);
+      logger.error('❌ Error processing :', { subject: email.subject });
     }
   }
   
-  console.log(`✅ Created ${notesCreated} email summaries`);
+  logger.info('✅ Created  email summaries', { notesCreated: notesCreated });
   return notesCreated;
 }
 
@@ -358,7 +359,7 @@ async function updateProjectNarrative(projectOrId, narrative, date = null, sourc
         .single();
 
       projectId = newProject?.id;
-      console.log(`   ✓ Created project: ${project.name}`);
+      logger.info('✓ Created project:', { name: project.name });
     }
   }
 
@@ -435,7 +436,7 @@ async function updateProjectNarrative(projectOrId, narrative, date = null, sourc
     .eq('id', projectId);
 
   const itemCount = narrative?.items?.length || (narrative?.headline ? 1 : 0);
-  console.log(`   ✓ Updated narrative log: ${itemCount} new entries (source: ${source})`);
+  logger.info('✓ Updated narrative log:  new entries (source: )', { itemCount: itemCount, source: source });
 }
 
 async function checkNoteExists(emailId) {
@@ -450,11 +451,11 @@ async function checkNoteExists(emailId) {
 
 // ⏰ Schedule: 3x daily (6am, 12pm, 6pm ET)
 function startGmailScanSchedule(io) {
-  console.log('⏰ Gmail scan schedule started (6am, 12pm, 6pm ET)');
+  logger.info('⏰ Gmail scan schedule started (6am, 12pm, 6pm ET)');
 
   // 6:00 AM ET
   cron.schedule('0 6 * * *', async () => {
-    console.log('\n⏰ [6am ET] Gmail scan triggered');
+    logger.info('\n⏰ [6am ET] Gmail scan triggered');
     const count = await scanGmailAndSummarize();
     if (io && count > 0) {
       io.emit('gmail-scan-complete', { count, time: '6am' });
@@ -465,7 +466,7 @@ function startGmailScanSchedule(io) {
 
   // 12:00 PM ET
   cron.schedule('0 12 * * *', async () => {
-    console.log('\n⏰ [12pm ET] Gmail scan triggered');
+    logger.info('\n⏰ [12pm ET] Gmail scan triggered');
     const count = await scanGmailAndSummarize();
     if (io && count > 0) {
       io.emit('gmail-scan-complete', { count, time: '12pm' });
@@ -476,7 +477,7 @@ function startGmailScanSchedule(io) {
 
   // 6:00 PM ET
   cron.schedule('0 18 * * *', async () => {
-    console.log('\n⏰ [6pm ET] Gmail scan triggered');
+    logger.info('\n⏰ [6pm ET] Gmail scan triggered');
     const count = await scanGmailAndSummarize();
     if (io && count > 0) {
       io.emit('gmail-scan-complete', { count, time: '6pm' });

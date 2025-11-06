@@ -1,3 +1,5 @@
+const logger = require('../utils/logger');
+
 const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config();
 
@@ -7,7 +9,7 @@ const supabase = createClient(
 );
 
 async function generateJourneyForITA() {
-  console.log('\n🎯 Generating journey for ITA Airways...\n');
+  logger.info('\n🎯 Generating journey for ITA Airways...\n');
 
   // Fetch ITA Airways project
   const { data: project, error: projectError } = await supabase
@@ -17,7 +19,7 @@ async function generateJourneyForITA() {
     .single();
 
   if (projectError) {
-    console.error('Error fetching project:', projectError);
+    logger.error('Error fetching project:', { arg0: projectError });
     return;
   }
 
@@ -89,13 +91,13 @@ async function generateJourneyForITA() {
     .select();
 
   if (updateError) {
-    console.error('❌ Error updating project:', updateError);
+    logger.error('❌ Error updating project:', { arg0: updateError });
   } else {
-    console.log('✅ Successfully generated journey for ITA Airways\n');
-    console.log('📊 Generated Insights:');
-    console.log('Status:', aiInsights.status);
-    console.log('Summary:', aiInsights.status_summary);
-    console.log('\nMilestones:');
+    logger.info('✅ Successfully generated journey for ITA Airways\n');
+    logger.debug('📊 Generated Insights:');
+    logger.info('Status:', { arg0: aiInsights.status });
+    logger.info('Summary:', { arg0: aiInsights.status_summary });
+    logger.info('\nMilestones:');
     aiInsights.milestones.forEach((m, i) => {
       const statusEmoji = {
         completed: '✅',
@@ -103,7 +105,7 @@ async function generateJourneyForITA() {
         upcoming: '⏳',
         at_risk: '⚠️'
       }[m.status] || '○';
-      console.log(`  ${statusEmoji} ${m.description} - ${m.target_date}`);
+      logger.info('-', { statusEmoji: statusEmoji, description: m.description, target_date: m.target_date });
     });
   }
 }

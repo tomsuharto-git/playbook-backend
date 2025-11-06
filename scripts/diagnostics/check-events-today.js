@@ -1,3 +1,5 @@
+const logger = require('../../utils/logger');
+
 const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config();
 
@@ -10,7 +12,7 @@ async function checkEvents() {
   const today = '2025-10-29';
   const tomorrow = '2025-10-30';
 
-  console.log('\nChecking events for Oct 29-30, 2025...\n');
+  logger.info('\nChecking events for Oct 29-30, 2025...\n');
 
   const { data: events, error } = await supabase
     .from('events')
@@ -20,17 +22,17 @@ async function checkEvents() {
     .order('start_time');
 
   if (error) {
-    console.error('Error:', error);
+    logger.error('Error:', { arg0: error });
     return;
   }
 
   const count = events ? events.length : 0;
-  console.log(`Found ${count} events:\n`);
+  logger.info('Found  events:\n', { count: count });
 
   if (events) {
     events.forEach(e => {
-      console.log(`- ${e.title} (${e.calendar_source})`);
-      console.log(`  ${e.start_time}`);
+      logger.info('-  ()', { title: e.title, calendar_source: e.calendar_source });
+      logger.info('', { start_time: e.start_time });
     });
   }
 }

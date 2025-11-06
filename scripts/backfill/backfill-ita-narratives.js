@@ -1,3 +1,5 @@
+const logger = require('../../utils/logger');
+
 require('dotenv').config();
 const { supabase } = require('./db/supabase-client');
 
@@ -7,7 +9,7 @@ const { supabase } = require('./db/supabase-client');
  */
 
 (async () => {
-  console.log('🔄 Backfilling ITA Airlines narrative logs...\n');
+  logger.info('🔄 Backfilling ITA Airlines narrative logs...\n');
 
   // Find ITA Airlines project
   const { data: project, error: projError } = await supabase
@@ -17,12 +19,12 @@ const { supabase } = require('./db/supabase-client');
     .single();
 
   if (projError || !project) {
-    console.error('❌ Error finding ITA Airlines project:', projError);
+    logger.error('❌ Error finding ITA Airlines project:', { arg0: projError });
     return;
   }
 
-  console.log(`📁 Found project: ${project.name}`);
-  console.log(`📊 Current narrative entries: ${project.narrative?.length || 0}\n`);
+  logger.info('📁 Found project:', { name: project.name });
+  logger.debug('📊 Current narrative entries: \n', { length || 0: project.narrative?.length || 0 });
 
   // Define narratives to backfill (extracted from meeting notes)
   const narrativesToAdd = [
@@ -103,11 +105,11 @@ const { supabase } = require('./db/supabase-client');
   });
 
   if (newNarratives.length === 0) {
-    console.log('✅ All narratives already exist in database. No backfill needed.');
+    logger.info('✅ All narratives already exist in database. No backfill needed.');
     return;
   }
 
-  console.log(`📝 Adding ${newNarratives.length} new narrative entries...\n`);
+  logger.debug('📝 Adding  new narrative entries...\n', { length: newNarratives.length });
 
   // Merge: new narratives go to the front
   const mergedNarrative = [...newNarratives, ...existingNarrative];
@@ -125,15 +127,15 @@ const { supabase } = require('./db/supabase-client');
     .eq('id', project.id);
 
   if (updateError) {
-    console.error('❌ Error updating project:', updateError);
+    logger.error('❌ Error updating project:', { arg0: updateError });
     return;
   }
 
-  console.log('✅ Successfully backfilled ITA Airlines narrative logs!\n');
-  console.log('Summary:');
+  logger.info('✅ Successfully backfilled ITA Airlines narrative logs!\n');
+  logger.info('Summary:');
   newNarratives.forEach((entry, idx) => {
-    console.log(`  ${idx + 1}. [${entry.date}] ${entry.headline}`);
+    logger.info('. []', { idx + 1: idx + 1, date: entry.date, headline: entry.headline });
   });
-  console.log(`\n📊 Total narrative entries now: ${trimmedNarrative.length}`);
-  console.log('\n💡 These narratives will be included in future briefing generation.');
+  logger.debug('\n📊 Total narrative entries now:', { length: trimmedNarrative.length });
+  logger.info('\n💡 These narratives will be included in future briefing generation.');
 })();

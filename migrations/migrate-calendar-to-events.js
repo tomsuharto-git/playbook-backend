@@ -1,6 +1,8 @@
 // Migration script: calendar_events → events (Phase 2)
 // Migrates missing Outlook events and deduplicates existing Google events
 
+const logger = require('../utils/logger');
+
 const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config();
 
@@ -40,8 +42,8 @@ async function eventExists(title, startTime) {
 }
 
 async function migrateCalendarEvents() {
-  console.log('\n🚀 Starting Calendar Events Migration to Phase 2\n');
-  console.log('='.repeat(80));
+  logger.info('\n🚀 Starting Calendar Events Migration to Phase 2\n');
+  logger.info('='.repeat(80));
 
   let stats = {
     total: 0,
@@ -53,20 +55,20 @@ async function migrateCalendarEvents() {
 
   try {
     // Fetch all calendar_events
-    console.log('\n📥 Fetching calendar_events...');
+    logger.info('\n📥 Fetching calendar_events...');
     const { data: calendarEvents, error: fetchError } = await supabase
       .from('calendar_events')
       .select('*')
       .order('start', { ascending: true });
 
     if (fetchError) {
-      console.error('❌ Error fetching calendar_events:', fetchError);
+      logger.error('❌ Error fetching calendar_events:', { arg0: fetchError });
       return;
     }
 
     stats.total = calendarEvents.length;
-    console.log(`✅ Found ${stats.total} events in calendar_events\n`);
-    console.log('-'.repeat(80));
+    logger.info('✅ Found  events in calendar_events\n', { total: stats.total });
+    logger.info('-'.repeat(80));
 
     // Process each event
     for (const event of calendarEvents) {
@@ -76,7 +78,7 @@ async function migrateCalendarEvents() {
 
       // Skip if missing required fields
       if (!title || !startTime) {
-        console.log(`⚠️  Skipping event with missing data: ${event.id}`);
+        logger.warn('⚠️  Skipping event with missing data:', { id: event.id });
         stats.skipped++;
         continue;
       }
@@ -84,7 +86,7 @@ async function migrateCalendarEvents() {
       // Check if event already exists
       const exists = await eventExists(title, startTime);
       if (exists) {
-        console.log(`⏭️  Skipping duplicate: ${title.substring(0, 50)}`);
+        logger.info('⏭️  Skipping duplicate:', { substring(0, 50): title.substring(0, 50) });
         stats.skipped++;
         continue;
       }
@@ -113,30 +115,30 @@ async function migrateCalendarEvents() {
         .select();
 
       if (insertError) {
-        console.error(`❌ Error migrating event "${title}":`, insertError.message);
+        logger.error('❌ Error migrating event "":', { title: title });
         stats.errors++;
       } else {
-        console.log(`✅ Migrated: ${title.substring(0, 60)} (${event.source})`);
+        logger.info('✅ Migrated:  ()', { substring(0, 60): title.substring(0, 60), source: event.source });
         stats.migrated++;
         stats.bySource[event.source] = (stats.bySource[event.source] || 0) + 1;
       }
     }
 
     // Print summary
-    console.log('\n' + '='.repeat(80));
-    console.log('\n📊 MIGRATION SUMMARY\n');
-    console.log('-'.repeat(80));
-    console.log(`Total events processed: ${stats.total}`);
-    console.log(`Successfully migrated:  ${stats.migrated}`);
-    console.log(`Skipped (duplicates):   ${stats.skipped}`);
-    console.log(`Errors:                 ${stats.errors}`);
-    console.log('\nBy source:');
-    console.log(`  Outlook: ${stats.bySource.outlook || 0}`);
-    console.log(`  Google:  ${stats.bySource.google || 0}`);
+    logger.info('\n' + '='.repeat(80));
+    logger.debug('\n📊 MIGRATION SUMMARY\n');
+    logger.info('-'.repeat(80));
+    logger.info('Total events processed:', { total: stats.total });
+    logger.info('Successfully migrated:', { migrated: stats.migrated });
+    logger.info('Skipped (duplicates):', { skipped: stats.skipped });
+    logger.error('Errors:', { errors: stats.errors });
+    logger.info('\nBy source:');
+    logger.info('Outlook:', { outlook || 0: stats.bySource.outlook || 0 });
+    logger.info('Google:', { google || 0: stats.bySource.google || 0 });
 
     // Verify final counts
-    console.log('\n📋 VERIFICATION\n');
-    console.log('-'.repeat(80));
+    logger.info('\n📋 VERIFICATION\n');
+    logger.info('-'.repeat(80));
 
     const { count: finalCount } = await supabase
       .from('events')
@@ -152,27 +154,27 @@ async function migrateCalendarEvents() {
       .select('*', { count: 'exact', head: true })
       .eq('calendar_source', 'google');
 
-    console.log(`\nFinal events table record count: ${finalCount}`);
-    console.log(`  Outlook events: ${outlookCount}`);
-    console.log(`  Google events:  ${googleCount}`);
+    logger.info('\nFinal events table record count:', { finalCount: finalCount });
+    logger.info('Outlook events:', { outlookCount: outlookCount });
+    logger.info('Google events:', { googleCount: googleCount });
 
-    console.log('\n' + '='.repeat(80));
+    logger.info('\n' + '='.repeat(80));
 
     if (stats.migrated > 0) {
-      console.log('\n✅ Migration completed successfully!');
-      console.log('\n💡 Next steps:');
-      console.log('1. Update backend/routes/calendar.js to query from "events"');
-      console.log('2. Test /api/calendar/brief endpoint');
-      console.log('3. Verify brief page displays all events (Outlook + Google)');
-      console.log('4. Once verified, update calendar sync to write to "events"');
-      console.log('5. Eventually deprecate calendar_events table\n');
+      logger.info('\n✅ Migration completed successfully!');
+      logger.info('\n💡 Next steps:');
+      logger.info('1. Update backend/routes/calendar.js to query from "events"');
+      logger.info('2. Test /api/calendar/brief endpoint');
+      logger.info('3. Verify brief page displays all events (Outlook + Google)');
+      logger.info('4. Once verified, update calendar sync to write to "events"');
+      logger.info('5. Eventually deprecate calendar_events table\n');
     } else {
-      console.log('\n⚠️  No new events migrated (all were duplicates)');
-      console.log('This may indicate migration was already run previously.\n');
+      logger.warn('\n⚠️  No new events migrated (all were duplicates)');
+      logger.info('This may indicate migration was already run previously.\n');
     }
 
   } catch (error) {
-    console.error('\n❌ Migration failed with error:', error);
+    logger.error('\n❌ Migration failed with error:', { arg0: error });
   }
 }
 

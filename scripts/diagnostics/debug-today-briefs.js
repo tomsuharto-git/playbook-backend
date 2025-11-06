@@ -1,3 +1,5 @@
+const logger = require('../../utils/logger');
+
 /**
  * Debug script to check today's briefings in the database
  */
@@ -12,7 +14,7 @@ async function debugTodaysBriefs() {
   });
   const todayET = etFormatter.format(now);
 
-  console.log(`\n🔍 Checking briefings for: ${todayET}\n`);
+  logger.debug('\n🔍 Checking briefings for: \n', { todayET: todayET });
 
   try {
     const { data, error } = await supabase
@@ -22,38 +24,38 @@ async function debugTodaysBriefs() {
       .single();
 
     if (error) {
-      console.error('❌ Error:', error);
+      logger.error('❌ Error:', { arg0: error });
       return;
     }
 
     if (!data) {
-      console.log('❌ No briefings found for today');
+      logger.error('❌ No briefings found for today');
       return;
     }
 
     const events = data.calendar_events || [];
-    console.log(`📊 Total events: ${events.length}`);
+    logger.debug('📊 Total events:', { length: events.length });
 
     // Count events with "No Title"
     const noTitleEvents = events.filter(e => e.summary === 'No Title');
-    console.log(`\n⚠️  Events with "No Title": ${noTitleEvents.length}`);
+    logger.warn('\n⚠️  Events with "No Title":', { length: noTitleEvents.length });
 
     // Count events with actual titles
     const titledEvents = events.filter(e => e.summary && e.summary !== 'No Title');
-    console.log(`✅ Events with titles: ${titledEvents.length}`);
+    logger.info('✅ Events with titles:', { length: titledEvents.length });
 
     // Show all event titles
-    console.log('\n📋 All events:');
+    logger.info('\n📋 All events:');
     events.forEach((event, i) => {
       const time = event.start?.dateTime || event.start?.date || 'No time';
       const title = event.summary || 'UNDEFINED';
       const source = event.calendar_category || 'Unknown';
       const id = event.id || 'No ID';
-      console.log(`  ${i + 1}. [${source}] ${time} - "${title}" (ID: ${id.substring(0, 20)}...)`);
+      logger.info('. []  - "" (ID: ...)', { i + 1: i + 1, source: source, time: time, title: title, substring(0, 20): id.substring(0, 20) });
     });
 
     // Show when this was last updated
-    console.log(`\n🕐 Last updated: ${data.updated_at || data.created_at || 'Unknown'}`);
+    logger.info('\n🕐 Last updated:', { created_at || 'Unknown': data.updated_at || data.created_at || 'Unknown' });
 
     // Check for duplicate IDs
     const idMap = new Map();
@@ -68,14 +70,14 @@ async function debugTodaysBriefs() {
 
     const duplicates = Array.from(idMap.entries()).filter(([id, count]) => count > 1);
     if (duplicates.length > 0) {
-      console.log(`\n⚠️  Duplicate event IDs found: ${duplicates.length}`);
+      logger.warn('\n⚠️  Duplicate event IDs found:', { length: duplicates.length });
       duplicates.forEach(([id, count]) => {
-        console.log(`    ${id}: ${count} occurrences`);
+        logger.info(':  occurrences', { id: id, count: count });
       });
     }
 
   } catch (err) {
-    console.error('❌ Exception:', err);
+    logger.error('❌ Exception:', { arg0: err });
   }
 
   process.exit(0);

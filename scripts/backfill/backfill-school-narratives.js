@@ -1,8 +1,10 @@
+const logger = require('../../utils/logger');
+
 require('dotenv').config();
 const { supabase } = require('./db/supabase-client');
 
 async function backfillSchoolNarratives() {
-  console.log('📚 Backfilling School narratives from Oct 8th email notes...\n');
+  logger.info('📚 Backfilling School narratives from Oct 8th email notes...\n');
 
   // Get School project
   const { data: project, error: projectError } = await supabase
@@ -12,12 +14,12 @@ async function backfillSchoolNarratives() {
     .single();
 
   if (projectError || !project) {
-    console.error('❌ School project not found:', projectError?.message);
+    logger.error('❌ School project not found:');
     return;
   }
 
-  console.log(`📁 Found project: ${project.name}`);
-  console.log(`📊 Current narrative entries: ${project.narrative?.length || 0}\n`);
+  logger.info('📁 Found project:', { name: project.name });
+  logger.debug('📊 Current narrative entries: \n', { length || 0: project.narrative?.length || 0 });
 
   // Define narratives to backfill (extracted from email notes)
   const narrativesToAdd = [
@@ -59,27 +61,27 @@ async function backfillSchoolNarratives() {
     .eq('id', project.id);
 
   if (updateError) {
-    console.error('❌ Error updating project:', updateError.message);
+    logger.error('❌ Error updating project:', { arg0: updateError.message });
     return;
   }
 
-  console.log('✅ Successfully backfilled School narratives:');
-  console.log(`   Added: ${narrativesToAdd.length} entries`);
-  console.log(`   Total: ${mergedNarrative.length} entries\n`);
+  logger.info('✅ Successfully backfilled School narratives:');
+  logger.info('Added:  entries', { length: narrativesToAdd.length });
+  logger.info('Total:  entries\n', { length: mergedNarrative.length });
 
-  console.log('📝 Backfilled entries:');
+  logger.debug('📝 Backfilled entries:');
   narrativesToAdd.forEach((entry, idx) => {
-    console.log(`\n${idx + 1}. [${entry.date}] ${entry.headline}`);
-    entry.bullets.forEach(b => console.log(`   - ${b}`));
+    logger.info('\n. []', { idx + 1: idx + 1, date: entry.date, headline: entry.headline });
+    entry.bullets.forEach(b => logger.info('-', { b: b });
   });
 }
 
 backfillSchoolNarratives()
   .then(() => {
-    console.log('\n✅ Backfill complete!');
+    logger.info('\n✅ Backfill complete!');
     process.exit(0);
   })
   .catch(err => {
-    console.error('❌ Fatal error:', err);
+    logger.error('❌ Fatal error:', { arg0: err });
     process.exit(1);
   });

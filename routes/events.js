@@ -1,4 +1,5 @@
 const express = require('express');
+const logger = require('../utils/logger').route('events');
 const router = express.Router();
 const { supabase } = require('../db/supabase-client');
 
@@ -22,13 +23,13 @@ router.post('/:id/complete', async (req, res) => {
       .single();
 
     if (error) {
-      console.error('Error completing event:', error);
+      logger.error('Error completing event:', { arg0: error });
       return res.status(500).json({ success: false, error: error.message });
     }
 
     res.json({ success: true, data });
   } catch (err) {
-    console.error('Error in complete endpoint:', err);
+    logger.error('Error in complete endpoint:', { arg0: err });
     res.status(500).json({ success: false, error: err.message });
   }
 });
@@ -51,13 +52,13 @@ router.post('/:id/dismiss', async (req, res) => {
       .single();
 
     if (error) {
-      console.error('Error dismissing event:', error);
+      logger.error('Error dismissing event:', { arg0: error });
       return res.status(500).json({ success: false, error: error.message });
     }
 
     res.json({ success: true, data });
   } catch (err) {
-    console.error('Error in dismiss endpoint:', err);
+    logger.error('Error in dismiss endpoint:', { arg0: err });
     res.status(500).json({ success: false, error: err.message });
   }
 });
@@ -74,13 +75,13 @@ router.delete('/:id/action', async (req, res) => {
       .eq('event_id', id);
 
     if (error) {
-      console.error('Error undoing event action:', error);
+      logger.error('Error undoing event action:', { arg0: error });
       return res.status(500).json({ success: false, error: error.message });
     }
 
     res.json({ success: true });
   } catch (err) {
-    console.error('Error in undo endpoint:', err);
+    logger.error('Error in undo endpoint:', { arg0: err });
     res.status(500).json({ success: false, error: err.message });
   }
 });
@@ -110,13 +111,13 @@ router.patch('/:id', async (req, res) => {
       .single();
 
     if (error) {
-      console.error('Error updating event overrides:', error);
+      logger.error('Error updating event overrides:', { arg0: error });
       return res.status(500).json({ success: false, error: error.message });
     }
 
     res.json({ success: true, data });
   } catch (err) {
-    console.error('Error in update endpoint:', err);
+    logger.error('Error in update endpoint:', { arg0: err });
     res.status(500).json({ success: false, error: err.message });
   }
 });
@@ -143,13 +144,13 @@ router.get('/actions', async (req, res) => {
       .in('event_id', eventIds);
 
     if (error) {
-      console.error('Error fetching event actions:', error);
+      logger.error('Error fetching event actions:', { arg0: error });
       return res.status(500).json({ success: false, error: error.message });
     }
 
     res.json({ success: true, data: data || [] });
   } catch (err) {
-    console.error('Error in actions endpoint:', err);
+    logger.error('Error in actions endpoint:', { arg0: err });
     res.status(500).json({ success: false, error: err.message });
   }
 });
@@ -176,13 +177,13 @@ router.get('/overrides', async (req, res) => {
       .in('event_id', eventIds);
 
     if (error) {
-      console.error('Error fetching event overrides:', error);
+      logger.error('Error fetching event overrides:', { arg0: error });
       return res.status(500).json({ success: false, error: error.message });
     }
 
     res.json({ success: true, data: data || [] });
   } catch (err) {
-    console.error('Error in overrides endpoint:', err);
+    logger.error('Error in overrides endpoint:', { arg0: err });
     res.status(500).json({ success: false, error: err.message });
   }
 });

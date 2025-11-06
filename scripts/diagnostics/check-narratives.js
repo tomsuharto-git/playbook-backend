@@ -1,7 +1,9 @@
+const logger = require('../../utils/logger');
+
 const { supabase } = require('./db/supabase-client');
 
 (async () => {
-  console.log('\n🔍 Checking project narratives...\n');
+  logger.debug('\n🔍 Checking project narratives...\n');
 
   // Check total narratives
   const { data: allNarratives, error: allError, count } = await supabase
@@ -11,22 +13,22 @@ const { supabase } = require('./db/supabase-client');
     .limit(20);
 
   if (allError) {
-    console.log('❌ Error fetching narratives:', allError);
+    logger.error('❌ Error fetching narratives:', { arg0: allError });
     process.exit(1);
   }
 
-  console.log(`📊 Total narratives in database: ${count}`);
-  console.log(`📝 Showing latest ${allNarratives?.length || 0} narratives:\n`);
+  logger.debug('📊 Total narratives in database:', { count: count });
+  logger.debug('📝 Showing latest  narratives:\n', { length || 0: allNarratives?.length || 0 });
 
   if (allNarratives && allNarratives.length > 0) {
     allNarratives.forEach((n, i) => {
-      console.log(`${i + 1}. Project ID: ${n.project_id}`);
-      console.log(`   Source: ${n.source} | Date: ${new Date(n.date).toLocaleDateString()}`);
-      console.log(`   Headline: ${n.headline}`);
-      console.log(`   Created: ${new Date(n.created_at).toLocaleString()}\n`);
+      logger.info('. Project ID:', { i + 1: i + 1, project_id: n.project_id });
+      logger.info('Source:  | Date:', { source: n.source, toLocaleDateString(): new Date(n.date).toLocaleDateString() });
+      logger.info('Headline:', { headline: n.headline });
+      logger.info('Created: \n', { toLocaleString(): new Date(n.created_at).toLocaleString() });
     });
   } else {
-    console.log('ℹ️  No narratives found in database');
+    logger.info('ℹ️  No narratives found in database');
   }
 
   // Get project names
@@ -45,12 +47,12 @@ const { supabase } = require('./db/supabase-client');
       projectCounts[n.project_id] = (projectCounts[n.project_id] || 0) + 1;
     });
 
-    console.log('\n📈 Narratives by project:');
+    logger.info('\n📈 Narratives by project:');
     Object.entries(projectCounts)
       .sort(([, a], [, b]) => b - a)
       .forEach(([pid, count]) => {
         const project = projects.find(p => p.id === parseInt(pid));
-        console.log(`  ${project?.name || 'Unknown'} (ID: ${pid}): ${count} narratives`);
+        logger.info('(ID: ):  narratives', { name || 'Unknown': project?.name || 'Unknown', pid: pid, count: count });
       });
   }
 

@@ -1,4 +1,5 @@
 const express = require('express');
+const logger = require('../utils/logger').route('calendar');
 const router = express.Router();
 const { supabase } = require('../db/supabase-client');
 const { fetchTodaysEvents } = require('../services/google-calendar');
@@ -22,9 +23,10 @@ router.get('/brief', async (req, res) => {
     });
     const todayET = etFormatter.format(now); // e.g., "2025-10-12"
 
-    console.log(`\n📅 Fetching pre-generated briefings for ${daysAhead} day(s)`);
-    console.log(`   Current time (ET): ${now.toLocaleString('en-US', { timeZone: 'America/New_York' })}`);
-    console.log(`   Today (ET): ${todayET}`);
+    logger.info('\n📅 Fetching pre-generated briefings for day(s)', { daysAhead: daysAhead });
+    const currentTimeET = now.toLocaleString('en-US', { timeZone: 'America/New_York' });
+    logger.info('Current time (ET)', { currentTimeET: currentTimeET });
+    logger.info('Today (ET):', { todayET: todayET });
 
     const eventsByDate = {};
 
@@ -40,7 +42,7 @@ router.get('/brief', async (req, res) => {
         timeZone: 'UTC'
       }).format(targetDate);
 
-      console.log(`  Date ${i}: ${dateStr}`);
+      logger.info('Date :', { i: i, dateStr: dateStr });
 
       // Fetch pre-generated briefings from database
       try {
@@ -53,8 +55,8 @@ router.get('/brief', async (req, res) => {
 
         // Handle duplicate rows (PGRST116 means multiple rows found)
         if (briefError && briefError.code === 'PGRST116') {
-          console.error(`    🚨 CRITICAL: Multiple daily_briefs rows found for ${dateStr}`);
-          console.log(`    🔧 Attempting to clean up duplicates...`);
+          logger.error('🚨 CRITICAL: Multiple daily_briefs rows found for', { dateStr: dateStr });
+          logger.info('🔧 Attempting to clean up duplicates...');
 
           // Fetch all duplicate rows
           const { data: duplicates } = await supabase
@@ -68,7 +70,8 @@ router.get('/brief', async (req, res) => {
             const keepId = duplicates[0].id;
             const deleteIds = duplicates.slice(1).map(d => d.id);
 
-            console.log(`    ℹ️  Keeping most recent row (${keepId}), deleting ${deleteIds.length} duplicates`);
+            const deleteCount = deleteIds.length;
+            logger.info('ℹ️  Keeping most recent row, deleting duplicates', { keepId: keepId, deleteCount: deleteCount });
 
             const { error: deleteError } = await supabase
               .from('daily_briefs')
@@ -76,9 +79,10 @@ router.get('/brief', async (req, res) => {
               .in('id', deleteIds);
 
             if (deleteError) {
-              console.error(`    ❌ Failed to delete duplicates:`, deleteError.message);
+              logger.error('❌ Failed to delete duplicates:');
             } else {
-              console.log(`    ✅ Cleaned up ${deleteIds.length} duplicate rows`);
+              const cleanedCount = deleteIds.length;
+              logger.info('✅ Cleaned up duplicate rows', { cleanedCount: cleanedCount });
 
               // Retry fetch after cleanup
               const { data: retryData } = await supabase
@@ -98,12 +102,12 @@ router.get('/brief', async (req, res) => {
         // No data for this date yet
         if (!briefData) {
           eventsByDate[dateStr] = [];
-          console.log(`    ℹ️  No briefings available (will be generated at next scheduled time)`);
-          console.log(`    DEBUG: briefData is null/undefined for ${dateStr}`);
+          logger.info('ℹ️  No briefings available (will be generated at next scheduled time)');
+          logger.info('DEBUG: briefData is null/undefined for', { dateStr: dateStr });
           continue;
         }
 
-        console.log(`    DEBUG: briefData found for ${dateStr}:`, {
+        logger.debug(`DEBUG: briefData found for ${dateStr}`, {
           hasEventIds: !!briefData.event_ids,
           eventIdsLength: briefData.event_ids?.length,
           hasCalendarEvents: !!briefData.calendar_events,
@@ -111,14 +115,15 @@ router.get('/brief', async (req, res) => {
         });
 
         if (briefError && briefError.code !== 'PGRST116') {
-          console.error(`    ⚠️  Database error:`, briefError?.message);
+          logger.error('⚠️  Database error:');
           eventsByDate[dateStr] = [];
           continue;
         }
 
         // Phase 2: Load events from normalized events table using event_ids
         if (briefData?.event_ids && briefData.event_ids.length > 0) {
-          console.log(`    Fetching ${briefData.event_ids.length} events from events table...`);
+          const eventIdCount = briefData.event_ids.length;
+          logger.info('Fetching events from events table...', { eventIdCount: eventIdCount });
 
           const { data: events, error: eventsError } = await supabase
             .from('events')
@@ -134,7 +139,7 @@ router.get('/brief', async (req, res) => {
             .order('start_time', { ascending: true});
 
           if (eventsError) {
-            console.error(`    ⚠️  Error loading events:`, eventsError.message);
+            logger.error('⚠️  Error loading events:');
             eventsByDate[dateStr] = [];
           } else if (events && events.length > 0) {
             // Map Phase 2 events table structure to expected frontend format
@@ -170,19 +175,20 @@ router.get('/brief', async (req, res) => {
                 enriched_attendees: e.attendees || []
               };
             });
-            console.log(`    ✅ Loaded ${events.length} events from events table`);
+            const loadedEventCount = events.length;
+            logger.info('✅ Loaded events from events table', { loadedEventCount: loadedEventCount });
           } else {
             // No events found for this briefing
             eventsByDate[dateStr] = [];
-            console.log(`    ℹ️  No events found for event_ids:`, briefData.event_ids);
+            logger.info('ℹ️  No events found for event_ids');
           }
         } else {
           // No event IDs in briefing (briefing may have been generated before events were created)
           eventsByDate[dateStr] = [];
-          console.log(`    ℹ️  No event_ids in briefing for ${dateStr}`);
+          logger.info('ℹ️  No event_ids in briefing for', { dateStr: dateStr });
         }
       } catch (error) {
-        console.error(`    ⚠️  Failed to fetch briefings:`, error.message);
+        logger.error('⚠️  Failed to fetch briefings:');
         eventsByDate[dateStr] = [];
       }
     }
@@ -192,14 +198,16 @@ router.get('/brief', async (req, res) => {
     const eventIds = allEvents.map(e => e.id).filter(Boolean);
 
     if (eventIds.length > 0) {
-      console.log(`\n  🔄 Fetching overrides for ${eventIds.length} events...`);
+      const eventIdCount = eventIds.length;
+      logger.info('\n  🔄 Fetching overrides for events...', { eventIdCount: eventIdCount });
       const { data: overrides } = await supabase
         .from('event_overrides')
         .select('*')
         .in('event_id', eventIds);
 
       if (overrides && overrides.length > 0) {
-        console.log(`     Found ${overrides.length} event overrides`);
+        const overrideCount = overrides.length;
+        logger.info('Found event overrides', { overrideCount: overrideCount });
         // Create a map for O(1) lookup
         const overrideMap = new Map(overrides.map(o => [o.event_id, o]));
 
@@ -231,9 +239,10 @@ router.get('/brief', async (req, res) => {
     const googleTotal = allEvents.filter(e => e.calendar_category !== 'Outlook').length;
     const outlookTotal = allEvents.filter(e => e.calendar_category === 'Outlook').length;
 
-    console.log(`\n  📊 Grand Total: ${allEvents.length} events`);
-    console.log(`     - Google: ${googleTotal}`);
-    console.log(`     - Outlook: ${outlookTotal}\n`);
+    const totalEventCount = allEvents.length;
+    logger.debug('\n  📊 Grand Total events', { totalEventCount: totalEventCount });
+    logger.info('- Google:', { googleTotal: googleTotal });
+    logger.info('- Outlook:', { outlookTotal: outlookTotal });
 
     res.json({
       success: true,
@@ -245,7 +254,7 @@ router.get('/brief', async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('❌ Error fetching calendar events:', error);
+    logger.error('❌ Error fetching calendar events:', { arg0: error });
     res.status(500).json({
       success: false,
       error: error.message
@@ -260,7 +269,7 @@ router.get('/brief', async (req, res) => {
  */
 router.post('/regenerate', async (req, res) => {
   try {
-    console.log('\n🔄 Manual briefing regeneration triggered...');
+    logger.info('\n🔄 Manual briefing regeneration triggered...');
 
     await generateBriefings();
 
@@ -269,7 +278,7 @@ router.post('/regenerate', async (req, res) => {
       message: 'Briefings regenerated successfully'
     });
   } catch (error) {
-    console.error('❌ Error regenerating briefings:', error);
+    logger.error('❌ Error regenerating briefings:', { arg0: error });
     res.status(500).json({
       success: false,
       error: error.message

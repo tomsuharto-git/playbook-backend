@@ -1,12 +1,14 @@
+const logger = require('../../utils/logger');
+
 const { supabase } = require('./db/supabase-client');
 
 (async () => {
-  console.log('🗑️  Deleting corrupted briefings...\n');
+  logger.info('🗑️  Deleting corrupted briefings...\n');
 
   const datesToDelete = ['2025-10-20', '2025-10-21'];
 
   for (const date of datesToDelete) {
-    console.log(`Deleting: ${date}`);
+    logger.info('Deleting:', { date: date });
 
     const { error } = await supabase
       .from('daily_briefs')
@@ -14,12 +16,12 @@ const { supabase } = require('./db/supabase-client');
       .eq('date', date);
 
     if (error) {
-      console.error(`  ❌ Error:`, error.message);
+      logger.error('❌ Error:');
     } else {
-      console.log(`  ✅ Deleted`);
+      logger.info('✅ Deleted');
     }
   }
 
-  console.log('\n✅ Cleanup complete!\n');
+  logger.info('\n✅ Cleanup complete!\n');
   process.exit(0);
 })();

@@ -1,3 +1,5 @@
+const logger = require('../../utils/logger');
+
 const { supabase } = require('./db/supabase-client');
 
 (async () => {
@@ -7,24 +9,24 @@ const { supabase } = require('./db/supabase-client');
     .in('date', ['2025-10-12', '2025-10-13']);
 
   if (error) {
-    console.error('Error:', error);
+    logger.error('Error:', { arg0: error });
   } else {
     data.forEach(day => {
       const outlookEvents = day.calendar_events.filter(e => e.calendar_category === 'Outlook');
 
-      console.log(`\n${'='.repeat(60)}`);
-      console.log(`${day.date}: ${outlookEvents.length} Outlook events`);
-      console.log('='.repeat(60));
+      logger.info('\n', { repeat(60): '='.repeat(60) });
+      logger.info(':  Outlook events', { date: day.date, length: outlookEvents.length });
+      logger.info('='.repeat(60));
 
       outlookEvents.forEach((e, i) => {
         const title = e.subject || e.summary || '(NO TITLE)';
         const startTime = e.start?.dateTime || e.start?.date || 'No time';
         const endTime = e.end?.dateTime || e.end?.date || 'No time';
 
-        console.log(`\n${i+1}. ${title}`);
-        console.log(`   Start: ${startTime}`);
-        console.log(`   End: ${endTime}`);
-        console.log(`   ID: ${e.id}`);
+        logger.info('\n.', { i+1: i+1, title: title });
+        logger.info('Start:', { startTime: startTime });
+        logger.info('End:', { endTime: endTime });
+        logger.info('ID:', { id: e.id });
       });
     });
   }

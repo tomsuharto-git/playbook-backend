@@ -1,3 +1,5 @@
+const logger = require('../utils/logger');
+
 const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config();
 
@@ -7,8 +9,8 @@ const supabase = createClient(
 );
 
 async function createCodingProjects() {
-  console.log('\n✨ Creating New Coding Projects\n');
-  console.log('='.repeat(70));
+  logger.info('\n✨ Creating New Coding Projects\n');
+  logger.info('='.repeat(70));
 
   const projectsToCreate = [
     {
@@ -35,7 +37,7 @@ async function createCodingProjects() {
   ];
 
   for (const projectData of projectsToCreate) {
-    console.log(`\n📌 Creating: ${projectData.name}`);
+    logger.info('\n📌 Creating:', { name: projectData.name });
 
     const { data: existing } = await supabase
       .from('projects')
@@ -44,7 +46,7 @@ async function createCodingProjects() {
       .maybeSingle();
 
     if (existing) {
-      console.log(`   ⚠️  Project already exists - skipping`);
+      logger.warn('⚠️  Project already exists - skipping');
       continue;
     }
 
@@ -55,14 +57,14 @@ async function createCodingProjects() {
       .single();
 
     if (error) {
-      console.error(`   ❌ Error creating project:`, error);
+      logger.error('❌ Error creating project:');
     } else {
-      console.log(`   ✅ Created successfully (ID: ${data.id})`);
+      logger.info('✅ Created successfully (ID: )', { id: data.id });
     }
   }
 
-  console.log('\n' + '='.repeat(70));
-  console.log('\n🎉 Projects created! Now running mapping backfill...\n');
+  logger.info('\n' + '='.repeat(70));
+  logger.info('\n🎉 Projects created! Now running mapping backfill...\n');
 }
 
 createCodingProjects();

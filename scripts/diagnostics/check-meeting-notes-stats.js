@@ -1,3 +1,5 @@
+const logger = require('../../utils/logger');
+
 const { supabase } = require('./db/supabase-client');
 
 (async () => {
@@ -7,37 +9,37 @@ const { supabase } = require('./db/supabase-client');
     .select('*', { count: 'exact' })
     .order('created_at', { ascending: false });
 
-  console.log(`\n📊 Meeting Notes Statistics:`);
-  console.log(`   Total meeting notes: ${totalCount}`);
+  logger.debug('\n📊 Meeting Notes Statistics:');
+  logger.info('Total meeting notes:', { totalCount: totalCount });
 
   const analyzed = allNotes.filter(n => n.analyzed).length;
   const withAnalysis = allNotes.filter(n => n.analysis).length;
   const withNarrative = allNotes.filter(n => n.analysis && n.analysis.narrative).length;
 
-  console.log(`   Analyzed: ${analyzed}`);
-  console.log(`   With analysis object: ${withAnalysis}`);
-  console.log(`   With narrative in analysis: ${withNarrative}`);
+  logger.info('Analyzed:', { analyzed: analyzed });
+  logger.info('With analysis object:', { withAnalysis: withAnalysis });
+  logger.info('With narrative in analysis:', { withNarrative: withNarrative });
 
   // Check recent notes with narratives
-  console.log(`\n📝 Recent meeting notes WITH narratives:`);
+  logger.debug('\n📝 Recent meeting notes WITH narratives:');
   allNotes
     .filter(n => n.analysis && n.analysis.narrative && n.analysis.narrative.headline)
     .slice(0, 10)
     .forEach(n => {
-      console.log(`   • ${n.title} (${n.date || 'no date'})`);
-      console.log(`     Project ID: ${n.project_id || 'none'}`);
-      console.log(`     Narrative: ${n.analysis.narrative.headline}`);
+      logger.info('•  ()', { title: n.title, date || 'no date': n.date || 'no date' });
+      logger.info('Project ID:', { project_id || 'none': n.project_id || 'none' });
+      logger.info('Narrative:', { headline: n.analysis.narrative.headline });
     });
 
   // Check recent notes WITHOUT narratives
-  console.log(`\n❌ Recent meeting notes WITHOUT narratives:`);
+  logger.error('\n❌ Recent meeting notes WITHOUT narratives:');
   allNotes
     .filter(n => !n.analysis || !n.analysis.narrative || !n.analysis.narrative.headline)
     .slice(0, 10)
     .forEach(n => {
-      console.log(`   • ${n.title} (${n.date || 'no date'})`);
-      console.log(`     Project ID: ${n.project_id || 'none'}`);
-      console.log(`     Has analysis: ${!!n.analysis}`);
+      logger.info('•  ()', { title: n.title, date || 'no date': n.date || 'no date' });
+      logger.info('Project ID:', { project_id || 'none': n.project_id || 'none' });
+      logger.info('Has analysis:', { analysis: !!n.analysis });
     });
 
   process.exit(0);

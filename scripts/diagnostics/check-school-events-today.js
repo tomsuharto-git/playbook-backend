@@ -1,8 +1,10 @@
+const logger = require('../../utils/logger');
+
 require('dotenv').config();
 const { supabase } = require('./db/supabase-client');
 
 async function checkTodayForSchoolEvents() {
-  console.log('📅 Checking today (2025-10-13) for School events...\n');
+  logger.info('📅 Checking today (2025-10-13) for School events...\n');
 
   const { data, error } = await supabase
     .from('daily_briefs')
@@ -11,7 +13,7 @@ async function checkTodayForSchoolEvents() {
     .single();
 
   if (error || !data) {
-    console.error('❌ No briefing found:', error?.message);
+    logger.error('❌ No briefing found:');
     return;
   }
 
@@ -22,19 +24,19 @@ async function checkTodayForSchoolEvents() {
   );
 
   if (schoolEvents.length === 0) {
-    console.log('⚠️  No School-related events found today');
+    logger.warn('⚠️  No School-related events found today');
     return;
   }
 
-  console.log(`Found ${schoolEvents.length} School-related events:\n`);
+  logger.info('Found  School-related events:\n', { length: schoolEvents.length });
   schoolEvents.forEach((event, idx) => {
-    console.log(`${idx + 1}. ${event.summary}`);
-    console.log(`   Project: ${event.project_name || 'None'}`);
-    console.log(`   Has briefing: ${event.ai_briefing ? 'YES' : 'NO'}`);
+    logger.info('.', { idx + 1: idx + 1, summary: event.summary });
+    logger.info('Project:', { project_name || 'None': event.project_name || 'None' });
+    logger.info('Has briefing:', { ai_briefing ? 'YES' : 'NO': event.ai_briefing ? 'YES' : 'NO' });
     if (event.ai_briefing) {
-      console.log(`   Briefing: ${event.ai_briefing.substring(0, 150)}...`);
+      logger.info('Briefing: ...', { substring(0, 150): event.ai_briefing.substring(0, 150) });
     }
-    console.log('');
+    logger.info('');
   });
 }
 

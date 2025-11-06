@@ -3,6 +3,7 @@ const router = express.Router();
 const { processEmailData } = require('../services/data-processor');
 const { generateBriefings } = require('../jobs/generate-briefings');
 const OneDriveClient = require('../services/onedrive-client');
+const logger = require('../utils/logger').route('webhook');
 
 const onedrive = new OneDriveClient();
 
@@ -11,8 +12,8 @@ const onedrive = new OneDriveClient();
 router.post('/calendar-ready', async (req, res) => {
   try {
     const { date, shareLink } = req.body;
-    console.log(`📅 [WEBHOOK] Calendar data ready for ${date}`);
-    console.log(`   Share link: ${shareLink}`);
+    logger.info('📅 [WEBHOOK] Calendar data ready for', { date: date });
+    logger.info('Share link:', { shareLink: shareLink });
 
     // IMPORTANT: Do NOT process calendar data directly here!
     // The Power Automate flow has already saved the file to Google Drive.
@@ -23,23 +24,23 @@ router.post('/calendar-ready', async (req, res) => {
     // 4. Generate AI briefings
     // 5. Save to database with full enrichment
 
-    console.log('   ⏭️  Skipping direct processing (file already in Google Drive)');
-    console.log('   🔄 Triggering main briefing generation job...');
+    logger.info('   ⏭️  Skipping direct processing (file already in Google Drive)');
+    logger.info('   🔄 Triggering main briefing generation job...');
 
     // Trigger briefing generation asynchronously
     // Don't await - let it run in background
     generateBriefings().catch(err => {
-      console.error('   ❌ Briefing generation failed:', err);
+      logger.error('   ❌ Briefing generation failed:', { arg0: err });
     });
 
-    console.log('✅ Webhook acknowledged, briefing generation triggered');
+    logger.info('✅ Webhook acknowledged, briefing generation triggered');
     res.json({
       status: 'success',
       message: 'Calendar webhook received, briefing generation triggered',
       note: 'File will be processed by main briefing job from Google Drive'
     });
   } catch (error) {
-    console.error('❌ Calendar webhook error:', error);
+    logger.error('❌ Calendar webhook error:', { arg0: error });
     res.status(500).json({ status: 'error', message: error.message });
   }
 });
@@ -48,7 +49,7 @@ router.post('/calendar-ready', async (req, res) => {
 router.post('/emails-ready', async (req, res) => {
   try {
     const { date, shareLink } = req.body;
-    console.log(`📧 Email data ready for ${date}`);
+    logger.info('📧 Email data ready for', { date: date });
 
     // Download from OneDrive share link
     const fileContent = await onedrive.downloadFile(shareLink);
@@ -56,10 +57,10 @@ router.post('/emails-ready', async (req, res) => {
     // Process emails (emails don't go through briefing generation)
     await processEmailData(fileContent, date);
 
-    console.log('✅ Emails processed');
+    logger.info('✅ Emails processed');
     res.json({ status: 'success', message: 'Email data processed' });
   } catch (error) {
-    console.error('❌ Email webhook error:', error);
+    logger.error('❌ Email webhook error:', { arg0: error });
     res.status(500).json({ status: 'error', message: error.message });
   }
 });

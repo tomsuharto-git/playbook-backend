@@ -1,4 +1,5 @@
 const cron = require('node-cron');
+const logger = require('../utils/logger').job('refresh-project-knowledge');
 const { buildProjectKnowledge } = require('../scripts/build-project-knowledge');
 
 /**
@@ -7,17 +8,17 @@ const { buildProjectKnowledge } = require('../scripts/build-project-knowledge');
  */
 function startProjectKnowledgeRefresh() {
   cron.schedule('0 23 * * *', async () => {
-    console.log('🔄 Refreshing project knowledge...');
+    logger.info('🔄 Refreshing project knowledge...');
     
     try {
       await buildProjectKnowledge();
-      console.log('✅ Project knowledge refreshed');
+      logger.info('✅ Project knowledge refreshed');
     } catch (error) {
-      console.error('❌ Failed to refresh project knowledge:', error);
+      logger.error('❌ Failed to refresh project knowledge:', { arg0: error });
     }
   });
   
-  console.log('⏰ Project knowledge refresh scheduled (daily at 11 PM)');
+  logger.info('⏰ Project knowledge refresh scheduled (daily at 11 PM)');
 }
 
 module.exports = { startProjectKnowledgeRefresh };

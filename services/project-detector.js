@@ -6,6 +6,7 @@
  */
 
 const Anthropic = require('@anthropic-ai/sdk');
+const logger = require('../utils/logger').service('project-detector');
 const { supabase } = require('../db/supabase-client');
 
 const anthropic = new Anthropic({
@@ -70,7 +71,7 @@ async function matchProjectsByKeywords(keywords) {
     .in('status', ['active', 'on_hold']);
 
   if (error || !projects) {
-    console.error('Error fetching projects:', error);
+    logger.error('Error fetching projects:', { arg0: error });
     return [];
   }
 
@@ -189,15 +190,15 @@ Return ONLY a JSON object with the EXACT Project ID (UUID) from the list above:
 
     const result = JSON.parse(responseText);
 
-    console.log(`   AI Response: project_id=${result.project_id}, confidence=${result.confidence}`);
-    console.log(`   AI Reasoning: ${result.reasoning}`);
+    logger.info('AI Response: project_id=, confidence=', { project_id: result.project_id, confidence: result.confidence });
+    logger.info('AI Reasoning:', { reasoning: result.reasoning });
 
     // Check if project_id is valid (not null, not undefined string)
     if (result.project_id && result.project_id !== 'null' && result.project_id !== 'undefined') {
       // Find the matching project
       const project = projects.find(p => p.id === result.project_id);
       if (project) {
-        console.log(`   ✅ Found matching project: ${project.name}`);
+        logger.info('✅ Found matching project:', { name: project.name });
         return {
           ...project,
           confidence: result.confidence,
@@ -205,13 +206,13 @@ Return ONLY a JSON object with the EXACT Project ID (UUID) from the list above:
           detection_method: 'ai'
         };
       } else {
-        console.log(`   ⚠️  Project ID ${result.project_id} not found in database!`);
+        logger.warn('⚠️  Project ID  not found in database!', { project_id: result.project_id });
       }
     }
 
     return null;
   } catch (error) {
-    console.error('AI classification error:', error);
+    logger.error('AI classification error:', { arg0: error });
     return null;
   }
 }
@@ -221,22 +222,22 @@ Return ONLY a JSON object with the EXACT Project ID (UUID) from the list above:
  */
 async function detectProject(event) {
   try {
-    console.log(`\n🔍 Detecting project for: "${event.summary}"`);
+    logger.debug('\n🔍 Detecting project for: ""', { summary: event.summary });
 
     // Step 1: Extract keywords
     const keywords = extractKeywords(event.summary, event.description);
-    console.log(`   Keywords: ${keywords.join(', ')}`);
+    logger.info('Keywords:', { join(', '): keywords.join(', ') });
 
     // Step 2: Keyword matching
     const projectMatches = await matchProjectsByKeywords(keywords);
 
     if (projectMatches.length > 0) {
-      console.log(`   Keyword matches: ${projectMatches.length}`);
-      console.log(`   Top match: ${projectMatches[0].name} (confidence: ${projectMatches[0].confidence.toFixed(2)})`);
+      logger.info('Keyword matches:', { length: projectMatches.length });
+      logger.info('Top match:  (confidence: )', { name: projectMatches[0].name, toFixed(2): projectMatches[0].confidence.toFixed(2) });
 
       // If high confidence match, return it immediately
       if (projectMatches[0].confidence >= 0.8) {
-        console.log(`   ✅ High confidence keyword match!`);
+        logger.info('✅ High confidence keyword match!');
         return {
           ...projectMatches[0],
           detection_method: 'keyword'
@@ -245,18 +246,18 @@ async function detectProject(event) {
     }
 
     // Step 3: AI classification for ambiguous cases
-    console.log(`   🤖 Using AI for classification...`);
+    logger.info('🤖 Using AI for classification...');
     const aiMatch = await classifyEventWithAI(event, projectMatches);
 
     if (aiMatch && aiMatch.confidence >= 0.7) {
-      console.log(`   ✅ AI match: ${aiMatch.name} (confidence: ${aiMatch.confidence.toFixed(2)})`);
+      logger.info('✅ AI match:  (confidence: )', { name: aiMatch.name, toFixed(2): aiMatch.confidence.toFixed(2) });
       return aiMatch;
     }
 
-    console.log(`   ℹ️  No project match found`);
+    logger.info('ℹ️  No project match found');
     return null;
   } catch (error) {
-    console.error('Error detecting project:', error);
+    logger.error('Error detecting project:', { arg0: error });
     return null;
   }
 }

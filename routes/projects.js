@@ -1,4 +1,5 @@
 const express = require('express');
+const logger = require('../utils/logger').route('projects');
 const router = express.Router();
 const { supabase } = require('../db/supabase-client');
 
@@ -8,7 +9,7 @@ const { supabase } = require('../db/supabase-client');
  */
 router.get('/', async (req, res) => {
   try {
-    console.log('\n📊 Fetching all projects from database');
+    logger.debug('\n📊 Fetching all projects from database');
 
     const { data: projects, error } = await supabase
       .from('projects')
@@ -16,11 +17,11 @@ router.get('/', async (req, res) => {
       .order('power_ranking', { ascending: false });
 
     if (error) {
-      console.error('   ❌ Database error:', error);
+      logger.error('   ❌ Database error:', { arg0: error });
       return res.status(500).json({ error: 'Failed to fetch projects' });
     }
 
-    console.log(`   ✅ Found ${projects?.length || 0} projects`);
+    logger.info('✅ Found  projects', { length || 0: projects?.length || 0 });
 
     res.json({
       projects: projects || [],
@@ -28,7 +29,7 @@ router.get('/', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('   ❌ Error fetching projects:', error);
+    logger.error('   ❌ Error fetching projects:', { arg0: error });
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -40,7 +41,7 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    console.log(`\n📊 Fetching project details for ID: ${id}`);
+    logger.debug('\n📊 Fetching project details for ID:', { id: id });
 
     // Fetch project
     const { data: project, error: projectError } = await supabase
@@ -50,7 +51,7 @@ router.get('/:id', async (req, res) => {
       .single();
 
     if (projectError) {
-      console.error('   ❌ Database error:', projectError);
+      logger.error('   ❌ Database error:', { arg0: projectError });
       return res.status(404).json({ error: 'Project not found' });
     }
 
@@ -62,10 +63,10 @@ router.get('/:id', async (req, res) => {
       .order('created_at', { ascending: false });
 
     if (tasksError) {
-      console.error('   ⚠️ Error fetching tasks:', tasksError);
+      logger.error('   ⚠️ Error fetching tasks:', { arg0: tasksError });
     }
 
-    console.log(`   ✅ Found project with ${tasks?.length || 0} tasks`);
+    logger.info('✅ Found project with  tasks', { length || 0: tasks?.length || 0 });
 
     res.json({
       project,
@@ -73,7 +74,7 @@ router.get('/:id', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('   ❌ Error fetching project:', error);
+    logger.error('   ❌ Error fetching project:', { arg0: error });
     res.status(500).json({ error: 'Internal server error' });
   }
 });

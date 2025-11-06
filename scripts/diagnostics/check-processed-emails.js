@@ -1,7 +1,9 @@
+const logger = require('../../utils/logger');
+
 const { supabase } = require('./db/supabase-client');
 
 async function checkProcessedEmails() {
-  console.log('\n📋 Checking processed_emails table...\n');
+  logger.info('\n📋 Checking processed_emails table...\n');
 
   // Check if table exists and has data
   const { data, error, count } = await supabase
@@ -11,32 +13,32 @@ async function checkProcessedEmails() {
     .limit(10);
 
   if (error) {
-    console.error('❌ Error querying processed_emails:', error);
+    logger.error('❌ Error querying processed_emails:', { arg0: error });
     return;
   }
 
-  console.log(`✅ Found ${count} total processed emails in database\n`);
+  logger.info('✅ Found  total processed emails in database\n', { count: count });
 
   if (data && data.length > 0) {
-    console.log('📄 Most recent 10 processed emails:\n');
-    console.log('═'.repeat(100));
+    logger.info('📄 Most recent 10 processed emails:\n');
+    logger.info('═'.repeat(100));
 
     data.forEach((email, idx) => {
-      console.log(`\n[${idx + 1}] ${email.subject || 'No subject'}`);
-      console.log(`   Email ID: ${email.email_id}`);
-      console.log(`   From: ${email.from_email || 'Unknown'}`);
-      console.log(`   Processed: ${new Date(email.processed_at).toLocaleString()}`);
-      console.log(`   Tasks created: ${email.tasks_created}`);
-      console.log(`   Source: ${email.source}`);
+      logger.info('\n[]', { idx + 1: idx + 1, subject || 'No subject': email.subject || 'No subject' });
+      logger.info('Email ID:', { email_id: email.email_id });
+      logger.info('From:', { from_email || 'Unknown': email.from_email || 'Unknown' });
+      logger.info('Processed:', { toLocaleString(): new Date(email.processed_at).toLocaleString() });
+      logger.info('Tasks created:', { tasks_created: email.tasks_created });
+      logger.info('Source:', { source: email.source });
     });
   } else {
-    console.log('⚠️  No processed emails found in database!');
-    console.log('   This means emails are NOT being marked as processed.');
+    logger.warn('⚠️  No processed emails found in database!');
+    logger.info('   This means emails are NOT being marked as processed.');
   }
 
   // Check specific email IDs from pending tasks
-  console.log('\n\n═'.repeat(100));
-  console.log('\n🔍 Checking specific email IDs from duplicate pending tasks:\n');
+  logger.info('\n\n═'.repeat(100));
+  logger.debug('\n🔍 Checking specific email IDs from duplicate pending tasks:\n');
 
   const duplicateEmailIds = [
     'AAMkAGY0MDI5OGIyLTExMmItNDJlZi05YmU5LThkNzY4MTFiOGM1MgBGAAAAAADyB8nMMMY-SKU6kMyWhHZuBwCrVKJz-pAXT7g8QVH_5CtgAAQ5DD3nAAA=', // Oatley task
@@ -51,21 +53,21 @@ async function checkProcessedEmails() {
       .single();
 
     if (error && error.code !== 'PGRST116') {
-      console.error(`❌ Error checking ${emailId}:`, error);
+      logger.error('❌ Error checking :', { emailId: emailId });
     } else if (found) {
-      console.log(`✅ FOUND: ${emailId}`);
-      console.log(`   Subject: ${found.subject}`);
-      console.log(`   Processed at: ${new Date(found.processed_at).toLocaleString()}`);
-      console.log(`   Tasks created: ${found.tasks_created}`);
+      logger.info('✅ FOUND:', { emailId: emailId });
+      logger.info('Subject:', { subject: found.subject });
+      logger.info('Processed at:', { toLocaleString(): new Date(found.processed_at).toLocaleString() });
+      logger.info('Tasks created:', { tasks_created: found.tasks_created });
     } else {
-      console.log(`❌ NOT FOUND: ${emailId}`);
-      console.log(`   This email has NOT been marked as processed!`);
+      logger.error('❌ NOT FOUND:', { emailId: emailId });
+      logger.info('This email has NOT been marked as processed!');
     }
-    console.log();
+    logger.info();
   }
 }
 
 checkProcessedEmails().catch(error => {
-  console.error('\n❌ Error:', error);
+  logger.error('\n❌ Error:', { arg0: error });
   process.exit(1);
 });

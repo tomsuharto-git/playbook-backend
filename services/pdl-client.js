@@ -8,6 +8,7 @@
  */
 
 const axios = require('axios');
+const logger = require('../utils/logger').service('pdl-client');
 
 const PDL_API_KEY = process.env.PDL_API_KEY;
 const PDL_API_URL = 'https://api.peopledatalabs.com/v5/person/enrich';
@@ -28,7 +29,7 @@ async function enrichPerson(email) {
   }
 
   try {
-    console.log(`  🔍 PDL API: Enriching ${email}...`);
+    logger.debug('🔍 PDL API: Enriching ...', { email: email });
 
     const response = await axios.post(
       PDL_API_URL,
@@ -43,7 +44,7 @@ async function enrichPerson(email) {
     );
 
     if (response.status === 200 && response.data) {
-      console.log(`  ✅ PDL API: Found data for ${email}`);
+      logger.info('✅ PDL API: Found data for', { email: email });
       return parseEnrichmentData(response.data);
     }
 
@@ -55,7 +56,7 @@ async function enrichPerson(email) {
       const status = error.response.status;
 
       if (status === 404) {
-        console.log(`  ⚠️  PDL API: Person not found (${email})`);
+        logger.warn('⚠️  PDL API: Person not found ()', { email: email });
         return {
           found: false,
           status: 404,
@@ -64,7 +65,7 @@ async function enrichPerson(email) {
       }
 
       if (status === 429) {
-        console.error(`  🚨 PDL API: Rate limit exceeded`);
+        logger.error('🚨 PDL API: Rate limit exceeded');
         return {
           found: false,
           status: 429,
@@ -73,7 +74,7 @@ async function enrichPerson(email) {
       }
 
       if (status === 401 || status === 403) {
-        console.error(`  🚨 PDL API: Authentication error (${status})`);
+        logger.error('🚨 PDL API: Authentication error ()', { status: status });
         return {
           found: false,
           status,
@@ -81,7 +82,7 @@ async function enrichPerson(email) {
         };
       }
 
-      console.error(`  ❌ PDL API: HTTP ${status} - ${error.response.statusText}`);
+      logger.error('❌ PDL API: HTTP  -', { status: status, statusText: error.response.statusText });
       return {
         found: false,
         status,
@@ -90,7 +91,7 @@ async function enrichPerson(email) {
     }
 
     // Network or timeout error
-    console.error(`  ❌ PDL API: Network error - ${error.message}`);
+    logger.error('❌ PDL API: Network error -', { message: error.message });
     return {
       found: false,
       status: 0,
@@ -164,32 +165,32 @@ function parseEnrichmentData(pdlData) {
  */
 async function testConnection() {
   if (!PDL_API_KEY) {
-    console.error('❌ PDL_API_KEY not configured');
+    logger.error('❌ PDL_API_KEY not configured');
     return false;
   }
 
-  console.log('🧪 Testing PDL API connection...');
+  logger.info('🧪 Testing PDL API connection...');
 
   try {
     // Test with a known email (PDL founder's email from their docs)
     const result = await enrichPerson('sean@peopledatalabs.com');
 
     if (result && result.found) {
-      console.log('✅ PDL API connection successful');
-      console.log(`   Found: ${result.name} at ${result.company}`);
+      logger.info('✅ PDL API connection successful');
+      logger.info('Found:  at', { name: result.name, company: result.company });
       return true;
     }
 
     if (result && result.status === 429) {
-      console.log('⚠️  PDL API rate limit reached (still connected)');
+      logger.warn('⚠️  PDL API rate limit reached (still connected)');
       return true;
     }
 
-    console.log('⚠️  PDL API responded but no data found (connection ok)');
+    logger.warn('⚠️  PDL API responded but no data found (connection ok)');
     return true;
 
   } catch (error) {
-    console.error('❌ PDL API connection failed:', error.message);
+    logger.error('❌ PDL API connection failed:', { arg0: error.message });
     return false;
   }
 }

@@ -1,3 +1,5 @@
+const logger = require('../utils/logger').service('project-context-enhancer');
+
 /**
  * Project Context Enhancer Service
  * Fetches project narrative and active tasks to enrich event briefings
@@ -10,7 +12,7 @@ const { supabase } = require('../db/supabase-client');
  */
 async function fetchProjectContext(projectId) {
   try {
-    console.log(`   📚 Fetching context for project: ${projectId}`);
+    logger.info('📚 Fetching context for project:', { projectId: projectId });
 
     // Fetch project details
     const { data: project, error: projectError } = await supabase
@@ -20,11 +22,11 @@ async function fetchProjectContext(projectId) {
       .single();
 
     if (projectError || !project) {
-      console.error('   ⚠️  Error fetching project:', projectError);
+      logger.error('   ⚠️  Error fetching project:', { arg0: projectError });
       return null;
     }
 
-    console.log(`   ✓ Project: ${project.name}`);
+    logger.info('✓ Project:', { name: project.name });
 
     // Fetch active tasks for this project
     const { data: tasks, error: tasksError } = await supabase
@@ -37,11 +39,11 @@ async function fetchProjectContext(projectId) {
       .limit(15); // Get top 15 tasks
 
     if (tasksError) {
-      console.error('   ⚠️  Error fetching tasks:', tasksError);
+      logger.error('   ⚠️  Error fetching tasks:', { arg0: tasksError });
     }
 
     const taskCount = tasks?.length || 0;
-    console.log(`   ✓ Tasks: ${taskCount} active`);
+    logger.info('✓ Tasks:  active', { taskCount: taskCount });
 
     return {
       project: {
@@ -57,7 +59,7 @@ async function fetchProjectContext(projectId) {
       tasks: tasks || []
     };
   } catch (error) {
-    console.error('Error fetching project context:', error);
+    logger.error('Error fetching project context:', { arg0: error });
     return null;
   }
 }

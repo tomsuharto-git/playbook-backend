@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const greetingGenerator = require('../ai/greeting-generator');
+const logger = require('../utils/logger').route('greeting');
 const { supabase } = require('../db/supabase-client');
 
 /**
@@ -32,7 +33,7 @@ router.get('/', async (req, res) => {
       const ageInHours = (now - generatedAt) / (1000 * 60 * 60);
 
       if (generatedAt > threeHoursAgo) {
-        console.log(`📝 Using cached greeting (${ageInHours.toFixed(1)}h old)`);
+        logger.debug('📝 Using cached greeting (h old)', { toFixed(1): ageInHours.toFixed(1) });
         return res.json({
           greeting: existingGreeting.greeting,
           cached: true,
@@ -40,18 +41,18 @@ router.get('/', async (req, res) => {
         });
       }
 
-      console.log(`🔄 Greeting is stale (${ageInHours.toFixed(1)}h old), regenerating...`);
+      logger.info('🔄 Greeting is stale (h old), regenerating...', { toFixed(1): ageInHours.toFixed(1) });
     }
 
     // Generate a new greeting
-    console.log('🔄 Generating fresh greeting');
+    logger.info('🔄 Generating fresh greeting');
     const greeting = await greetingGenerator.generate();
     res.json({
       greeting,
       cached: false
     });
   } catch (error) {
-    console.error('Greeting route error:', error);
+    logger.error('Greeting route error:', { arg0: error });
     res.status(500).json({
       error: 'Failed to generate greeting',
       greeting: 'Hey Tom, ready to roll 🔥'

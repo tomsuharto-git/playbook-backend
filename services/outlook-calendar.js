@@ -4,6 +4,7 @@
  */
 
 const axios = require('axios');
+const logger = require('../utils/logger').service('outlook-calendar');
 const { normalizeOutlookEvent, filterEventsByDate } = require('./calendar-normalizer');
 
 const CALENDAR_FOLDER_ID = '15CJiwytPs1A0rAIectouqr8xExIYMiMf';
@@ -19,12 +20,12 @@ async function getLatestCalendarFile() {
     const listResponse = await axios.get(listUrl);
 
     if (!listResponse.data.files || listResponse.data.files.length === 0) {
-      console.log('📭 No calendar files found in Google Drive');
+      logger.info('📭 No calendar files found in Google Drive');
       return null;
     }
 
     const file = listResponse.data.files[0];
-    console.log(`📄 Latest calendar file: ${file.name} (modified: ${file.modifiedTime})`);
+    logger.info('📄 Latest calendar file:  (modified: )', { name: file.name, modifiedTime: file.modifiedTime });
 
     // Download file content
     const downloadUrl = `https://www.googleapis.com/drive/v3/files/${file.id}?alt=media&key=${process.env.GOOGLE_API_KEY}`;
@@ -36,7 +37,7 @@ async function getLatestCalendarFile() {
     };
 
   } catch (error) {
-    console.error(`❌ Failed to fetch calendar from Drive:`, error.message);
+    logger.error('❌ Failed to fetch calendar from Drive:');
     throw error;
   }
 }
@@ -48,19 +49,19 @@ async function getLatestCalendarFile() {
  */
 async function fetchOutlookEventsForDate(targetDateStr) {
   try {
-    console.log(`\n📅 Fetching Outlook events for ${targetDateStr}...`);
+    logger.info('\n📅 Fetching Outlook events for ...', { targetDateStr: targetDateStr });
 
     // Get latest calendar file from Drive
     const calendarFile = await getLatestCalendarFile();
 
     if (!calendarFile) {
-      console.log('   No calendar file available');
+      logger.info('   No calendar file available');
       return [];
     }
 
     // Parse calendar data
     const allEvents = calendarFile.data.value || [];
-    console.log(`   Total events in file: ${allEvents.length}`);
+    logger.info('Total events in file:', { length: allEvents.length });
 
     // LAYER 3 DEFENSE: Validate and normalize events, filtering out invalid ones
     // normalizeOutlookEvent() now returns null for invalid events (no subject)
@@ -70,19 +71,19 @@ async function fetchOutlookEventsForDate(targetDateStr) {
 
     const rejectedCount = allEvents.length - normalizedEvents.length;
     if (rejectedCount > 0) {
-      console.log(`   🚫 [LAYER 3] Rejected ${rejectedCount} invalid Outlook event(s)`);
+      logger.info('🚫 [LAYER 3] Rejected  invalid Outlook event(s)', { rejectedCount: rejectedCount });
     }
-    console.log(`   ✅ Normalized: ${normalizedEvents.length} valid events`);
+    logger.info('✅ Normalized:  valid events', { length: normalizedEvents.length });
 
     // Then filter for target date
     const filteredEvents = filterEventsByDate(normalizedEvents, targetDateStr);
-    console.log(`   Events on ${targetDateStr}: ${filteredEvents.length}`);
+    logger.info('Events on :', { targetDateStr: targetDateStr, length: filteredEvents.length });
 
-    console.log(`   ✅ Fetched ${filteredEvents.length} Outlook events\n`);
+    logger.info('✅ Fetched  Outlook events\n', { length: filteredEvents.length });
     return filteredEvents;
 
   } catch (error) {
-    console.error(`❌ Error fetching Outlook events for ${targetDateStr}:`, error.message);
+    logger.error('❌ Error fetching Outlook events for :', { targetDateStr: targetDateStr });
     return []; // Return empty array on error to allow Google Calendar to still work
   }
 }

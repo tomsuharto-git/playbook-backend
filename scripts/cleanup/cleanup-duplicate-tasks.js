@@ -1,5 +1,6 @@
 const { supabase } = require('./db/supabase-client');
 const readline = require('readline');
+const logger = require('../../utils/logger');
 
 const rl = readline.createInterface({
   input: process.stdin,
@@ -13,8 +14,8 @@ function ask(question) {
 }
 
 async function cleanupDuplicates() {
-  console.log('\n🧹 Duplicate Task Cleanup Tool\n');
-  console.log('═'.repeat(80));
+  logger.info('\n🧹 Duplicate Task Cleanup Tool\n');
+  logger.info('═'.repeat(80));
 
   // Get all pending email-based tasks
   const { data: tasks } = await supabase
@@ -26,7 +27,7 @@ async function cleanupDuplicates() {
     .order('created_at');
 
   if (!tasks || tasks.length === 0) {
-    console.log('✅ No pending email-based tasks found.');
+    logger.info('✅ No pending email-based tasks found.');
     rl.close();
     return;
   }
@@ -44,12 +45,12 @@ async function cleanupDuplicates() {
   const duplicateGroups = Object.entries(grouped).filter(([_, tasks]) => tasks.length > 1);
 
   if (duplicateGroups.length === 0) {
-    console.log('✅ No duplicate tasks found!');
+    logger.info('✅ No duplicate tasks found!');
     rl.close();
     return;
   }
 
-  console.log(`\n❌ Found ${duplicateGroups.length} emails with duplicate tasks:\n`);
+  logger.error('\n❌ Found  emails with duplicate tasks:\n', { length: duplicateGroups.length });
 
   let totalDuplicates = 0;
   const toKeep = [];
@@ -57,13 +58,13 @@ async function cleanupDuplicates() {
 
   duplicateGroups.forEach(([emailSource, tasks], idx) => {
     const emailId = emailSource.replace('email:', '').substring(0, 50);
-    console.log(`\n${idx + 1}. Email: ${emailId}...`);
-    console.log(`   ${tasks.length} tasks found:\n`);
+    logger.info('\n. Email: ...', { idx + 1: idx + 1, emailId: emailId });
+    logger.info('tasks found:\n', { length: tasks.length });
 
     tasks.forEach((task, i) => {
-      console.log(`   [${i + 1}] ${task.title}`);
-      console.log(`       Created: ${new Date(task.created_at).toLocaleString()}`);
-      console.log(`       ID: ${task.id}`);
+      logger.info('[]', { i + 1: i + 1, title: task.title });
+      logger.info('Created:', { toLocaleString(): new Date(task.created_at).toLocaleString() });
+      logger.info('ID:', { id: task.id });
     });
 
     // Strategy: Keep the OLDEST task (first created), dismiss the rest
@@ -74,27 +75,27 @@ async function cleanupDuplicates() {
     toDismiss.push(...duplicates);
     totalDuplicates += duplicates.length;
 
-    console.log(`\n   ✅ KEEP:    ${oldest.title} (${new Date(oldest.created_at).toLocaleDateString()})`);
-    console.log(`   ❌ DISMISS: ${duplicates.length} duplicate(s)`);
+    logger.info('\n   ✅ KEEP:     ()', { title: oldest.title, toLocaleDateString(): new Date(oldest.created_at).toLocaleDateString() });
+    logger.error('❌ DISMISS:  duplicate(s)', { length: duplicates.length });
   });
 
-  console.log('\n' + '═'.repeat(80));
-  console.log(`\n📊 Summary:`);
-  console.log(`   Total tasks: ${tasks.length}`);
-  console.log(`   Tasks to keep: ${toKeep.length}`);
-  console.log(`   Tasks to dismiss: ${toDismiss.length}`);
-  console.log('\n' + '═'.repeat(80));
+  logger.info('\n' + '═'.repeat(80));
+  logger.debug('\n📊 Summary:');
+  logger.info('Total tasks:', { length: tasks.length });
+  logger.info('Tasks to keep:', { length: toKeep.length });
+  logger.info('Tasks to dismiss:', { length: toDismiss.length });
+  logger.info('\n' + '═'.repeat(80));
 
   // Ask for confirmation
   const answer = await ask('\n⚠️  Proceed with cleanup? (yes/no): ');
 
   if (answer.toLowerCase() !== 'yes') {
-    console.log('\n❌ Cleanup cancelled.');
+    logger.error('\n❌ Cleanup cancelled.');
     rl.close();
     return;
   }
 
-  console.log('\n🚀 Starting cleanup...\n');
+  logger.info('\n🚀 Starting cleanup...\n');
 
   // Dismiss duplicates
   let dismissed = 0;
@@ -109,24 +110,24 @@ async function cleanupDuplicates() {
       .eq('id', task.id);
 
     if (error) {
-      console.error(`   ❌ Error dismissing "${task.title}":`, error.message);
+      logger.error('❌ Error dismissing "":', { title: task.title });
     } else {
       dismissed++;
-      console.log(`   ✅ Dismissed: ${task.title}`);
+      logger.info('✅ Dismissed:', { title: task.title });
     }
   }
 
-  console.log('\n' + '═'.repeat(80));
-  console.log(`\n🎉 Cleanup complete!`);
-  console.log(`   Dismissed: ${dismissed} tasks`);
-  console.log(`   Kept: ${toKeep.length} tasks`);
-  console.log('\n💡 Tip: Run list-pending-tasks.js to verify results\n');
+  logger.info('\n' + '═'.repeat(80));
+  logger.info('\n🎉 Cleanup complete!');
+  logger.info('Dismissed:  tasks', { dismissed: dismissed });
+  logger.info('Kept:  tasks', { length: toKeep.length });
+  logger.info('\n💡 Tip: Run list-pending-tasks.js to verify results\n');
 
   rl.close();
 }
 
 cleanupDuplicates().catch(error => {
-  console.error('\n❌ Error:', error);
+  logger.error('\n❌ Error:', { arg0: error });
   rl.close();
   process.exit(1);
 });

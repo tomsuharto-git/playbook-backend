@@ -1,3 +1,5 @@
+const logger = require('../../utils/logger');
+
 require('dotenv').config();
 const { supabase } = require('./db/supabase-client');
 
@@ -9,18 +11,18 @@ async function check() {
     .order('date');
 
   if (error) {
-    console.error('Error:', error);
+    logger.error('Error:', { arg0: error });
     return;
   }
 
   data.forEach(row => {
     const outlook = row.calendar_events.filter(e => e.calendar_category === 'Outlook');
     const gmail = row.calendar_events.filter(e => e.calendar_category !== 'Outlook');
-    console.log(`${row.date}: ${row.calendar_events.length} total (${outlook.length} Outlook + ${gmail.length} Gmail)`);
+    logger.info(':  total ( Outlook +  Gmail)', { date: row.date, length: row.calendar_events.length, length: outlook.length, length: gmail.length });
 
     if (outlook.length > 0) {
-      console.log('  Outlook events:');
-      outlook.slice(0, 5).forEach(e => console.log(`    - ${e.summary}`));
+      logger.info('  Outlook events:');
+      outlook.slice(0, 5).forEach(e => logger.info('-', { summary: e.summary });
     }
   });
 }

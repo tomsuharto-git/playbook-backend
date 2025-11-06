@@ -1,4 +1,5 @@
 const axios = require('axios');
+const logger = require('../utils/logger').service('gmail-gdrive-sync');
 const { processCalendarData, processEmailData } = require('./data-processor');
 
 /**
@@ -25,10 +26,10 @@ class GmailGDriveSync {
         maxResults: 10
       });
 
-      console.log(`📧 Found ${results.length} Playbook emails`);
+      logger.info('📧 Found  Playbook emails', { length: results.length });
       return results;
     } catch (error) {
-      console.error('Failed to search Gmail:', error);
+      logger.error('Failed to search Gmail:', { arg0: error });
       return [];
     }
   }
@@ -73,7 +74,7 @@ class GmailGDriveSync {
       // Convert to direct download URL
       const downloadUrl = `https://drive.google.com/uc?export=download&id=${fileId}`;
       
-      console.log(`📥 Downloading from Google Drive: ${fileId}`);
+      logger.info('📥 Downloading from Google Drive:', { fileId: fileId });
       
       const response = await axios.get(downloadUrl, {
         responseType: 'json',
@@ -82,7 +83,7 @@ class GmailGDriveSync {
 
       return response.data;
     } catch (error) {
-      console.error('Failed to download from Google Drive:', error.message);
+      logger.error('Failed to download from Google Drive:', { arg0: error.message });
       
       // Try alternate download method (for larger files)
       if (error.response?.status === 302) {
@@ -104,17 +105,17 @@ class GmailGDriveSync {
       const fileInfo = this.parseEmailBody(emailBody);
 
       if (!fileInfo) {
-        console.log('⚠️  Could not parse email body');
+        logger.warn('⚠️  Could not parse email body');
         return false;
       }
 
-      console.log(`📋 Processing ${fileInfo.type} for ${fileInfo.date}`);
+      logger.info('📋 Processing  for', { type: fileInfo.type, date: fileInfo.date });
 
       // Download file from Google Drive
       const fileData = await this.downloadFromGDrive(fileInfo.link);
       
       if (!fileData) {
-        console.log('❌ Failed to download file');
+        logger.error('❌ Failed to download file');
         return false;
       }
 
@@ -125,14 +126,14 @@ class GmailGDriveSync {
         await processEmailData(fileData, fileInfo.date);
       }
 
-      console.log(`✅ Processed ${fileInfo.type}`);
+      logger.info('✅ Processed', { type: fileInfo.type });
 
       // Archive the email (move to processed folder)
       await this.archiveEmail(email.id);
 
       return true;
     } catch (error) {
-      console.error('Error processing email:', error);
+      logger.error('Error processing email:', { arg0: error });
       return false;
     }
   }
@@ -148,9 +149,9 @@ class GmailGDriveSync {
         removeLabelIds: ['INBOX']
       });
       
-      console.log(`📁 Archived email: ${emailId}`);
+      logger.info('📁 Archived email:', { emailId: emailId });
     } catch (error) {
-      console.error('Failed to archive email:', error);
+      logger.error('Failed to archive email:', { arg0: error });
     }
   }
 
@@ -158,14 +159,14 @@ class GmailGDriveSync {
    * Main sync function - call this on cron schedule
    */
   async sync() {
-    console.log('🔄 Starting Gmail → Google Drive sync...');
+    logger.info('🔄 Starting Gmail → Google Drive sync...');
 
     try {
       // Find unprocessed emails
       const emails = await this.findPlaybookEmails();
 
       if (emails.length === 0) {
-        console.log('📭 No new Playbook emails found');
+        logger.info('📭 No new Playbook emails found');
         return;
       }
 
@@ -176,10 +177,10 @@ class GmailGDriveSync {
         if (success) successCount++;
       }
 
-      console.log(`✅ Sync complete: ${successCount}/${emails.length} processed`);
+      logger.info('✅ Sync complete: / processed', { successCount: successCount, length: emails.length });
 
     } catch (error) {
-      console.error('❌ Sync failed:', error);
+      logger.error('❌ Sync failed:', { arg0: error });
     }
   }
 }

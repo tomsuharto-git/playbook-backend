@@ -1,3 +1,5 @@
+const logger = require('../../utils/logger');
+
 const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config();
 
@@ -7,7 +9,7 @@ const supabase = createClient(
 );
 
 async function checkFullStructure() {
-  console.log('\n📋 Checking full meeting note structure...\n');
+  logger.info('\n📋 Checking full meeting note structure...\n');
 
   // Get ITA Airways project
   const { data: project } = await supabase
@@ -24,8 +26,8 @@ async function checkFullStructure() {
     .eq('title', 'Meeting Notes')
     .single();
 
-  console.log('Full Meeting Note Structure:');
-  console.log(JSON.stringify(notes, null, 2));
+  logger.info('Full Meeting Note Structure:');
+  logger.info(JSON.stringify(notes, { arg0: null });
 }
 
 checkFullStructure();

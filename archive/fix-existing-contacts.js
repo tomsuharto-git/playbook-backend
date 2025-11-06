@@ -1,10 +1,12 @@
+const logger = require('../utils/logger');
+
 require('dotenv').config();
 const { createClient } = require('@supabase/supabase-js');
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
 async function fixExistingContacts() {
-  console.log('🔧 Fixing existing contact records...\n');
+  logger.info('🔧 Fixing existing contact records...\n');
 
   // Get all enriched contacts
   const { data: contacts, error } = await supabase
@@ -13,15 +15,15 @@ async function fixExistingContacts() {
     .eq('enrichment_status', 'enriched');
 
   if (error) {
-    console.error('Error fetching contacts:', error);
+    logger.error('Error fetching contacts:', { arg0: error });
     return;
   }
 
-  console.log(`Found ${contacts.length} enriched contacts to fix\n`);
+  logger.info('Found  enriched contacts to fix\n', { length: contacts.length });
 
   for (const contact of contacts) {
     if (!contact.pdl_data || !contact.pdl_data.data) {
-      console.log(`⚠️  Skipping ${contact.email} - no PDL data`);
+      logger.warn('⚠️  Skipping  - no PDL data', { email: contact.email });
       continue;
     }
 
@@ -59,23 +61,23 @@ async function fixExistingContacts() {
       .eq('id', contact.id);
 
     if (updateError) {
-      console.log(`❌ Failed to update ${contact.email}`);
+      logger.error('❌ Failed to update', { email: contact.email });
     } else {
-      console.log(`✅ Updated ${contact.email}`);
+      logger.info('✅ Updated', { email: contact.email });
       if (company || job_title) {
-        console.log(`   ${name}`);
-        console.log(`   ${company || 'No company'}, ${job_title || 'No title'}`);
-        console.log(`   Seniority: ${seniority}`);
+        logger.info('', { name: name });
+        logger.info(',', { company || 'No company': company || 'No company', job_title || 'No title': job_title || 'No title' });
+        logger.info('Seniority:', { seniority: seniority });
       }
     }
   }
 
-  console.log(`\n✅ Fixed ${contacts.length} contacts`);
+  logger.info('\n✅ Fixed  contacts', { length: contacts.length });
 }
 
 fixExistingContacts()
   .then(() => process.exit(0))
   .catch(err => {
-    console.error('Fatal error:', err);
+    logger.error('Fatal error:', { arg0: err });
     process.exit(1);
   });

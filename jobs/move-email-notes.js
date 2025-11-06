@@ -1,6 +1,7 @@
 const fs = require('fs').promises;
 const path = require('path');
 const Anthropic = require('@anthropic-ai/sdk');
+const logger = require('../utils/logger').job('move-email-notes');
 const { supabase } = require('../db/supabase-client');
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
@@ -10,7 +11,7 @@ const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
  * Runs 3x daily at 7am, 1pm, 7pm (1 hour after Gmail scans)
  */
 async function moveEmailNotesToProjects() {
-  console.log('📧 Moving email notes to project folders...');
+  logger.info('📧 Moving email notes to project folders...');
   
   const vaultPath = process.env.VAULT_PATH;
   const emailNotesPath = path.join(vaultPath, 'Notion/LIFE/Email Notes');
@@ -23,7 +24,7 @@ async function moveEmailNotesToProjects() {
     .eq('status', 'active');
   
   if (!projects || projects.length === 0) {
-    console.log('No projects with vault folders found');
+    logger.info('No projects with vault folders found');
     return;
   }
   
@@ -31,7 +32,7 @@ async function moveEmailNotesToProjects() {
   const emailFiles = await fs.readdir(emailNotesPath);
   const mdFiles = emailFiles.filter(f => f.endsWith('.md'));
   
-  console.log(`Found ${mdFiles.length} email notes to process`);
+  logger.info('Found  email notes to process', { length: mdFiles.length });
   
   let movedCount = 0;
   
@@ -71,7 +72,7 @@ async function moveEmailNotesToProjects() {
     // Check if file already exists at target
     try {
       await fs.access(targetPath);
-      console.log(`  ⏭️  Skipped - already exists: ${newFilename}`);
+      logger.info('⏭️  Skipped - already exists:', { newFilename: newFilename });
       continue;
     } catch (error) {
       // File doesn't exist, proceed with move
@@ -79,11 +80,11 @@ async function moveEmailNotesToProjects() {
     
     // Move the file (rename in Node.js parlance)
     await fs.rename(filePath, targetPath);
-    console.log(`  ✅ Moved: ${filename} → ${project.name}/${newFilename}`);
+    logger.info('✅ Moved:  → /', { filename: filename, name: project.name, newFilename: newFilename });
     movedCount++;
   }
   
-  console.log(`✅ Email notes processed: ${movedCount} moved, ${mdFiles.length - movedCount} skipped`);
+  logger.info('✅ Email notes processed:  moved,  skipped', { movedCount: movedCount, length - movedCount: mdFiles.length - movedCount });
 }
 
 /**
@@ -136,7 +137,7 @@ if (require.main === module) {
   moveEmailNotesToProjects()
     .then(() => process.exit(0))
     .catch(error => {
-      console.error('Error:', error);
+      logger.error('Error:', { arg0: error });
       process.exit(1);
     });
 }

@@ -1,3 +1,5 @@
+const logger = require('../../utils/logger');
+
 /**
  * Debug script to test event normalization
  */
@@ -20,33 +22,33 @@ const sampleEvent = {
   "optionalAttendees": ""
 };
 
-console.log('🔍 Testing event normalization\n');
-console.log('Input event:');
-console.log(JSON.stringify(sampleEvent, null, 2));
+logger.debug('🔍 Testing event normalization\n');
+logger.info('Input event:');
+logger.info(JSON.stringify(sampleEvent, { arg0: null });
 
 const normalized = normalizeOutlookEvent(sampleEvent);
 
-console.log('\n✅ Normalized event:');
-console.log(JSON.stringify(normalized, null, 2));
+logger.info('\n✅ Normalized event:');
+logger.info(JSON.stringify(normalized, { arg0: null });
 
-console.log('\n🔍 Field check:');
-console.log(`  - id: ${normalized.id || 'MISSING'}`);
-console.log(`  - summary: ${normalized.summary || 'MISSING'}`);
-console.log(`  - start: ${JSON.stringify(normalized.start) || 'MISSING'}`);
-console.log(`  - end: ${JSON.stringify(normalized.end) || 'MISSING'}`);
-console.log(`  - calendar_category: ${normalized.calendar_category || 'MISSING'}`);
-console.log(`  - attendees: ${normalized.attendees?.length || 0}`);
+logger.debug('\n🔍 Field check:');
+logger.info('- id:', { id || 'MISSING': normalized.id || 'MISSING' });
+logger.info('- summary:', { summary || 'MISSING': normalized.summary || 'MISSING' });
+logger.info('- start:', { start) || 'MISSING': JSON.stringify(normalized.start) || 'MISSING' });
+logger.info('- end:', { end) || 'MISSING': JSON.stringify(normalized.end) || 'MISSING' });
+logger.info('- calendar_category:', { calendar_category || 'MISSING': normalized.calendar_category || 'MISSING' });
+logger.info('- attendees:', { length || 0: normalized.attendees?.length || 0 });
 
 // Test with event missing subject
-console.log('\n\n🔍 Testing with missing subject:\n');
+logger.debug('\n\n🔍 Testing with missing subject:\n');
 const noSubjectEvent = { ...sampleEvent, subject: undefined };
 const normalizedNoSubject = normalizeOutlookEvent(noSubjectEvent);
-console.log(`  - summary: ${normalizedNoSubject.summary || 'MISSING'} (should be "No Title")`);
+logger.info('- summary:  (should be "No Title")', { summary || 'MISSING': normalizedNoSubject.summary || 'MISSING' });
 
 // Test with empty subject
-console.log('\n🔍 Testing with empty subject:\n');
+logger.debug('\n🔍 Testing with empty subject:\n');
 const emptySubjectEvent = { ...sampleEvent, subject: '' };
 const normalizedEmptySubject = normalizeOutlookEvent(emptySubjectEvent);
-console.log(`  - summary: ${normalizedEmptySubject.summary || 'MISSING'} (should be "No Title")`);
+logger.info('- summary:  (should be "No Title")', { summary || 'MISSING': normalizedEmptySubject.summary || 'MISSING' });
 
 process.exit(0);

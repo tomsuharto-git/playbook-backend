@@ -7,6 +7,7 @@
 const axios = require('axios');
 const fs = require('fs').promises;
 const path = require('path');
+const logger = require('../utils/logger').service('elevenlabs-tts');
 
 class ElevenLabsTTS {
   constructor() {
@@ -56,9 +57,9 @@ class ElevenLabsTTS {
       return outputPath;
 
     } catch (error) {
-      console.error(`   ❌ TTS Error for text: "${text.substring(0, 50)}..."`);
-      console.error(`   Status: ${error.response?.status}`);
-      console.error(`   Message: ${error.response?.data?.toString() || error.message}`);
+      logger.error('❌ TTS Error for text: "..."', { substring(0, 50): text.substring(0, 50) });
+      logger.error('Status:', { status: error.response?.status });
+      logger.error('Message:', { message: error.response?.data?.toString() || error.message });
       throw error;
     }
   }
@@ -80,7 +81,7 @@ class ElevenLabsTTS {
       throw new Error('PODCAST_VOICE_1 and PODCAST_VOICE_2 must be set in .env');
     }
 
-    console.log(`   🎤 Generating ${dialogue.length} audio segments...`);
+    logger.info('🎤 Generating  audio segments...', { length: dialogue.length });
 
     const audioPaths = [];
 
@@ -89,7 +90,7 @@ class ElevenLabsTTS {
       const voiceId = line.host === 1 ? voice1 : voice2;
       const outputPath = path.join(outputDir, `segment_${String(i).padStart(3, '0')}.mp3`);
 
-      console.log(`   ${i + 1}/${dialogue.length} - Host ${line.host}: "${line.text.substring(0, 40)}..."`);
+      logger.info('/ - Host : "..."', { i + 1: i + 1, length: dialogue.length, host: line.host, substring(0, 40): line.text.substring(0, 40) });
 
       await this.generateAudio(line.text, voiceId, outputPath);
       audioPaths.push(outputPath);
@@ -100,7 +101,7 @@ class ElevenLabsTTS {
       }
     }
 
-    console.log(`   ✅ Generated ${audioPaths.length} audio segments`);
+    logger.info('✅ Generated  audio segments', { length: audioPaths.length });
     return audioPaths;
   }
 }

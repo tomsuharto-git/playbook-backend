@@ -1,3 +1,5 @@
+const logger = require('../utils/logger').service('data-processor');
+
 const { supabase } = require('../db/supabase-client');
 const { analyzeEmails } = require('../ai/email-analyzer');
 const { isTaskDuplicate } = require('../ai/duplicate-detector');
@@ -125,9 +127,11 @@ async function isDuplicateTask(title, projectId = null) {
   const sevenDaysAgo = new Date();
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-  console.log(`\n🔍 [DUPLICATE CHECK] Starting for: "${title}"`);
-  console.log(`   Project ID: ${projectId || 'none'}`);
-  console.log(`   Time window: ${sevenDaysAgo.toISOString()} to now`);
+  logger.debug('\n🔍 [DUPLICATE CHECK] Starting for: ""', { title: title });
+  const projectIdDisplay = projectId || 'none';
+  logger.info('Project ID:', { projectIdDisplay: projectIdDisplay });
+  const timeWindow = sevenDaysAgo.toISOString();
+  logger.info('Time window to now', { timeWindow: timeWindow });
 
   // Check ALL tasks from last 7 days across all projects (pending, active, dismissed, complete)
   // IMPORTANT: We check across all projects to catch cross-project duplicates
@@ -139,22 +143,24 @@ async function isDuplicateTask(title, projectId = null) {
     .in('status', ['pending', 'active', 'dismissed', 'complete']);
 
   if (error) {
-    console.error(`   ❌ Database error during duplicate check:`, error);
+    logger.error('❌ Database error during duplicate check:');
     return false;
   }
 
-  console.log(`   📊 Found ${existingTasks?.length || 0} existing tasks in time window`);
+  const taskCount = existingTasks?.length || 0;
+  logger.debug('📊 Found existing tasks in time window', { taskCount: taskCount });
 
   if (!existingTasks || existingTasks.length === 0) {
-    console.log(`   ✅ No duplicates (no existing tasks found)`);
-    console.log(`   ⏱️  Duration: ${Date.now() - startTime}ms\n`);
+    logger.info('✅ No duplicates (no existing tasks found)');
+    const duration = Date.now() - startTime;
+    logger.info('⏱️  Duration ms', { duration: duration });
     return false;
   }
 
   // MULTI-LAYER APPROACH: Word matching → Fuzzy matching → Project+noun matching → AI failsafe
 
   // Phase 1: Quick word-matching check (catches obvious duplicates)
-  console.log(`   🔤 Phase 1: Word-matching check...`);
+  logger.info('🔤 Phase 1: Word-matching check...');
   const normalizedTitle = title.toLowerCase().trim();
   const keyNouns = extractKeyNouns(title);
   let highestSimilarity = 0;
@@ -177,19 +183,21 @@ async function isDuplicateTask(title, projectId = null) {
 
     // If 95%+ similar, it's an obvious duplicate - no need for AI
     if (similarity >= 0.95) {
-      console.log(`   🎯 DUPLICATE FOUND (word-matching)!`);
-      console.log(`      Similarity: ${(similarity * 100).toFixed(1)}%`);
-      console.log(`      Existing task: "${existing.title}"`);
-      console.log(`      Status: ${existing.status}`);
-      console.log(`      Created: ${existing.created_at}`);
-      console.log(`   💨 Fast path: No AI call needed`);
-      console.log(`   ⏱️  Duration: ${Date.now() - startTime}ms\n`);
+      logger.info('🎯 DUPLICATE FOUND (word-matching)!');
+      const similarityPercent = (similarity * 100).toFixed(1);
+      logger.info('Similarity %', { similarityPercent: similarityPercent });
+      logger.info('Existing task: ""', { title: existing.title });
+      logger.info('Status:', { status: existing.status });
+      logger.info('Created:', { created_at: existing.created_at });
+      logger.info('💨 Fast path: No AI call needed');
+      const duration = Date.now() - startTime;
+      logger.info('⏱️  Duration ms', { duration: duration });
       return true;
     }
   }
 
   // Phase 2: Fuzzy matching (catch typos like "Lovesac" vs "Lovsac")
-  console.log(`   🔍 Phase 2: Fuzzy matching check...`);
+  logger.debug('🔍 Phase 2: Fuzzy matching check...');
   for (const existing of existingTasks) {
     const newWords = title.toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter(Boolean);
     const existingWords = existing.title.toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter(Boolean);
@@ -207,19 +215,21 @@ async function isDuplicateTask(title, projectId = null) {
     const fuzzyScore = fuzzyMatches / Math.max(newWords.length, existingWords.length);
 
     if (fuzzyScore >= 0.85) {
-      console.log(`   🎯 DUPLICATE FOUND (fuzzy matching)!`);
-      console.log(`      Fuzzy score: ${(fuzzyScore * 100).toFixed(1)}%`);
-      console.log(`      Existing task: "${existing.title}"`);
-      console.log(`      Status: ${existing.status}`);
-      console.log(`   💨 Caught typo/variant without AI`);
-      console.log(`   ⏱️  Duration: ${Date.now() - startTime}ms\n`);
+      logger.info('🎯 DUPLICATE FOUND (fuzzy matching)!');
+      const fuzzyScorePercent = (fuzzyScore * 100).toFixed(1);
+      logger.info('Fuzzy score %', { fuzzyScorePercent: fuzzyScorePercent });
+      logger.info('Existing task: ""', { title: existing.title });
+      logger.info('Status:', { status: existing.status });
+      logger.info('💨 Caught typo/variant without AI');
+      const duration = Date.now() - startTime;
+      logger.info('⏱️  Duration ms', { duration: duration });
       return true;
     }
   }
 
   // Phase 3: Project-aware + key noun matching
   if (projectId && sameProjectMatches.length > 0) {
-    console.log(`   🗂️  Phase 3: Project-aware matching (${sameProjectMatches.length} same-project tasks)...`);
+    logger.info('🗂️  Phase 3: Project-aware matching ( same-project tasks)...', { length: sameProjectMatches.length });
 
     for (const match of sameProjectMatches) {
       const existingNouns = extractKeyNouns(match.task.title);
@@ -227,15 +237,18 @@ async function isDuplicateTask(title, projectId = null) {
 
       // If same project + 2+ key nouns match, likely duplicate
       if (commonNouns.length >= 2) {
-        console.log(`   🎯 POTENTIAL DUPLICATE (project + nouns)!`);
-        console.log(`      Common nouns: ${commonNouns.join(', ')}`);
-        console.log(`      Existing task: "${match.task.title}"`);
-        console.log(`      Word similarity: ${(match.similarity * 100).toFixed(1)}%`);
-        console.log(`   🤖 Sending to AI for confirmation...`);
+        logger.info('🎯 POTENTIAL DUPLICATE (project + nouns)!');
+        const commonNounsList = commonNouns.join(', ');
+        logger.info('Common nouns:', { commonNounsList: commonNounsList });
+        logger.info('Existing task: ""', { title: match.task.title });
+        const wordSimilarityPercent = (match.similarity * 100).toFixed(1);
+        logger.info('Word similarity %', { wordSimilarityPercent: wordSimilarityPercent });
+        logger.info('🤖 Sending to AI for confirmation...');
 
         const duplicateResult = await isTaskDuplicate(title, [match.task]);
         if (duplicateResult.isDuplicate) {
-          console.log(`   ⏱️  Total duration: ${Date.now() - startTime}ms\n`);
+          const totalDuration = Date.now() - startTime;
+          logger.info('⏱️  Total duration ms', { totalDuration: totalDuration });
           return true;
         }
       }
@@ -245,22 +258,26 @@ async function isDuplicateTask(title, projectId = null) {
   // Phase 4: AI failsafe for grey zone (LOWERED from 65% to 50% to catch semantic matches)
   // This catches cases like "Share phone number" vs "Send phone number"
   if (highestSimilarity >= 0.50) {
-    console.log(`   📍 Closest word match: "${mostSimilarTask.title}" (${(highestSimilarity * 100).toFixed(1)}%)`);
-    console.log(`   🤖 Phase 4: Grey zone detected (50-95%), checking with AI...`);
+    const highestSimilarityPercent = (highestSimilarity * 100).toFixed(1);
+    logger.info('📍 Closest word match: "" (%)', { title: mostSimilarTask.title, highestSimilarityPercent: highestSimilarityPercent });
+    logger.info('🤖 Phase 4: Grey zone detected (50-95%), checking with AI...');
 
     const duplicateResult = await isTaskDuplicate(title, existingTasks);
 
     if (duplicateResult.isDuplicate) {
-      console.log(`   ⏱️  Total duration: ${Date.now() - startTime}ms\n`);
+      const totalDuration = Date.now() - startTime;
+      logger.info('⏱️  Total duration ms', { totalDuration: totalDuration });
       return true;
     }
   } else {
-    console.log(`   📍 Closest match: "${mostSimilarTask.title}" (${(highestSimilarity * 100).toFixed(1)}%)`);
-    console.log(`   ⏹️  Too dissimilar (<50%), skipping AI check`);
+    const highestSimilarityPercent = (highestSimilarity * 100).toFixed(1);
+    logger.info('📍 Closest match: "" (%)', { title: mostSimilarTask.title, highestSimilarityPercent: highestSimilarityPercent });
+    logger.info('⏹️  Too dissimilar (<50%), skipping AI check');
   }
 
-  console.log(`   ✅ No duplicates found`);
-  console.log(`   ⏱️  Total duration: ${Date.now() - startTime}ms\n`);
+  logger.info('✅ No duplicates found');
+  const totalDuration = Date.now() - startTime;
+  logger.info('⏱️  Total duration ms', { totalDuration: totalDuration });
   return false;
 }
 
@@ -282,8 +299,8 @@ async function filterNewEmails(emails) {
     .in('email_id', emailIds);
 
   if (error) {
-    console.error('   ⚠️  Error checking processed emails:', error.message);
-    console.error('   ⚠️  WARNING: Processing all emails as fail-safe (DB query failed)');
+    logger.error('   ⚠️  Error checking processed emails:', { arg0: error.message });
+    logger.error('   ⚠️  WARNING: Processing all emails as fail-safe (DB query failed)');
     return emails; // Fail-safe: process all if query fails
   }
 
@@ -302,29 +319,31 @@ async function filterNewEmails(emails) {
  */
 async function markEmailsAsProcessed(emailAnalyses) {
   if (!emailAnalyses || emailAnalyses.length === 0) {
-    console.log('   ⚠️  No email analyses to mark as processed');
+    logger.warn('   ⚠️  No email analyses to mark as processed');
     return;
   }
 
-  console.log(`\n   📝 [MARK PROCESSED] Attempting to mark ${emailAnalyses.length} emails as processed...`);
+  const emailCount = emailAnalyses.length;
+  logger.debug('\n   📝 [MARK PROCESSED] Attempting to mark emails as processed...', { emailCount: emailCount });
 
   // Filter out emails without IDs and log them
   const validAnalyses = emailAnalyses.filter(analysis => {
     if (!analysis.emailId) {
-      console.error(`   ❌ Email missing ID: "${analysis.subject}" from ${analysis.from}`);
+      logger.error('❌ Email missing ID: "" from', { subject: analysis.subject, from: analysis.from });
       return false;
     }
     return true;
   });
 
   if (validAnalyses.length === 0) {
-    console.error('   ❌ CRITICAL: No emails have IDs! Cannot mark as processed.');
-    console.error('   ❌ This will cause duplicates on next run!');
+    logger.error('   ❌ CRITICAL: No emails have IDs! Cannot mark as processed.');
+    logger.error('   ❌ This will cause duplicates on next run!');
     return;
   }
 
   if (validAnalyses.length < emailAnalyses.length) {
-    console.error(`   ⚠️  WARNING: ${emailAnalyses.length - validAnalyses.length} emails are missing IDs`);
+    const missingIdCount = emailAnalyses.length - validAnalyses.length;
+    logger.error('⚠️  WARNING: emails are missing IDs', { missingIdCount: missingIdCount });
   }
 
   const records = validAnalyses.map(analysis => ({
@@ -338,7 +357,8 @@ async function markEmailsAsProcessed(emailAnalyses) {
     processed_at: new Date().toISOString()
   }));
 
-  console.log(`   💾 Inserting ${records.length} records into processed_emails...`);
+  const recordCount = records.length;
+  logger.info('💾 Inserting records into processed_emails...', { recordCount: recordCount });
 
   const { error } = await supabase
     .from('processed_emails')
@@ -346,20 +366,21 @@ async function markEmailsAsProcessed(emailAnalyses) {
     .select();
 
   if (error) {
-    console.error('   ❌ Error marking emails as processed:', error.message);
-    console.error('   ❌ Error details:', JSON.stringify(error, null, 2));
-    console.error('   ❌ Sample record:', JSON.stringify(records[0], null, 2));
+    logger.error('   ❌ Error marking emails as processed:', { arg0: error.message });
+    logger.error('   ❌ Error details:', { arg1: null });
+    logger.error('   ❌ Sample record:', { arg1: null });
     // Don't throw - this is logging only, shouldn't block task creation
   } else {
-    console.log(`   ✅ Successfully marked ${records.length} emails as processed`);
+    const processedCount = records.length;
+    logger.info('✅ Successfully marked emails as processed', { processedCount: processedCount });
   }
 }
 
 async function processCalendarData(events, date) {
-  console.log('\n⚠️  WARNING: processCalendarData() is DEPRECATED!');
-  console.log('   This function should NOT be used. Use generate-briefings.js instead.');
-  console.log('   Phase 2 architecture uses normalized events table, not JSONB storage.');
-  console.log('   Skipping to prevent JSONB pollution...\n');
+  logger.warn('\n⚠️  WARNING: processCalendarData() is DEPRECATED!');
+  logger.info('   This function should NOT be used. Use generate-briefings.js instead.');
+  logger.info('   Phase 2 architecture uses normalized events table, not JSONB storage.');
+  logger.info('   Skipping to prevent JSONB pollution...\n');
 
   // Return early - this function is no longer needed in Phase 2
   // All calendar event processing is handled by generate-briefings.js
@@ -369,23 +390,23 @@ async function processCalendarData(events, date) {
 
 async function processEmailData(emails, date) {
   const emailList = Array.isArray(emails) ? emails : (emails.value || []);
-  console.log(`\n📧 [EMAIL PROCESSOR] Starting for ${date}`);
-  console.log(`   Total emails in file: ${emailList.length}`);
+  logger.info('\n📧 [EMAIL PROCESSOR] Starting for', { date: date });
+  logger.info('Total emails in file:', { length: emailList.length });
 
   if (emailList.length === 0) {
-    console.log('   No emails to process\n');
+    logger.info('   No emails to process\n');
     return;
   }
 
   // Filter out already-processed emails
   const newEmails = await filterNewEmails(emailList);
-  console.log(`\n   📊 Email Filtering:`);
-  console.log(`      New emails: ${newEmails.length}`);
-  console.log(`      Already processed: ${emailList.length - newEmails.length}`);
-  console.log(`      API calls saved: ${emailList.length - newEmails.length}`);
+  logger.debug('\n   📊 Email Filtering:');
+  logger.info('New emails:', { length: newEmails.length });
+  logger.info('Already processed:', { length: emailList.length - newEmails.length });
+  logger.info('API calls saved:', { length: emailList.length - newEmails.length });
 
   if (newEmails.length === 0) {
-    console.log('   ✅ No new emails to process\n');
+    logger.info('   ✅ No new emails to process\n');
     return;
   }
 
@@ -396,25 +417,26 @@ async function processEmailData(emails, date) {
     .eq('status', 'active');
 
   if (projectsError) {
-    console.error('   Failed to fetch projects:', projectsError);
+    logger.error('   Failed to fetch projects:', { arg0: projectsError });
     return;
   }
 
-  console.log(`   Active projects: ${projects.length}`);
+  logger.info('Active projects:', { length: projects.length });
 
   // Analyze ONLY NEW emails with AI
-  console.log('   🤖 Sending emails to AI for analysis...');
+  logger.info('   🤖 Sending emails to AI for analysis...');
   const analysis = await analyzeEmails(newEmails, projects);
-  console.log(`   📊 AI returned ${analysis.emailAnalyses?.length || 0} email analyses`);
+  const analysisCount = analysis.emailAnalyses?.length || 0;
+  logger.debug('📊 AI returned email analyses', { analysisCount: analysisCount });
 
   let tasksCreated = 0;
   let tasksSkipped = 0;
 
   // Process each email analysis
   for (const emailAnalysis of analysis.emailAnalyses) {
-    console.log(`\n   📨 Processing email: "${emailAnalysis.subject}"`);
-    console.log(`      From: ${emailAnalysis.from}`);
-    console.log(`      Project: ${emailAnalysis.projectName}`);
+    logger.info('\n   📨 Processing email: ""', { subject: emailAnalysis.subject });
+    logger.info('From:', { from: emailAnalysis.from });
+    logger.info('Project:', { projectName: emailAnalysis.projectName });
 
     // Find matching project
     const project = projects.find(p =>
@@ -422,23 +444,23 @@ async function processEmailData(emails, date) {
     );
 
     if (!project) {
-      console.log(`      ⚠️  Project not found: ${emailAnalysis.projectName}`);
+      logger.warn('⚠️  Project not found:', { projectName: emailAnalysis.projectName });
       continue;
     }
 
     // Update project narrative if present
     if (emailAnalysis.narrative) {
-      console.log(`      📝 Updating narrative...`);
+      logger.debug('📝 Updating narrative...');
       await updateProjectNarrative(project.id, emailAnalysis.narrative, date, 'email');
     }
 
     // Create pending tasks
     const taskCount = emailAnalysis.tasks?.length || 0;
-    console.log(`      🎯 Found ${taskCount} potential task(s)`);
+    logger.info('🎯 Found  potential task(s)', { taskCount: taskCount });
 
     for (const task of emailAnalysis.tasks || []) {
-      console.log(`\n      📋 Task: "${task.title}"`);
-      console.log(`         Confidence: ${task.confidence}`);
+      logger.info('\n      📋 Task: ""', { title: task.title });
+      logger.info('Confidence:', { confidence: task.confidence });
 
       if (task.confidence >= 0.9) {
         await createPendingTask({
@@ -450,7 +472,7 @@ async function processEmailData(emails, date) {
         });
         tasksCreated++;
       } else {
-        console.log(`         ⏭️  Skipped (confidence too low: ${task.confidence} < 0.9)`);
+        logger.info('⏭️  Skipped (confidence too low:  < 0.9)', { confidence: task.confidence });
         tasksSkipped++;
       }
     }
@@ -459,10 +481,10 @@ async function processEmailData(emails, date) {
   // Mark all analyzed emails as processed
   await markEmailsAsProcessed(analysis.emailAnalyses);
 
-  console.log(`\n✅ [EMAIL PROCESSOR] Complete`);
-  console.log(`   Emails analyzed: ${newEmails.length}`);
-  console.log(`   Tasks created: ${tasksCreated}`);
-  console.log(`   Tasks skipped: ${tasksSkipped}\n`);
+  logger.info('\n✅ [EMAIL PROCESSOR] Complete');
+  logger.info('Emails analyzed:', { length: newEmails.length });
+  logger.info('Tasks created:', { tasksCreated: tasksCreated });
+  logger.info('Tasks skipped: \n', { tasksSkipped: tasksSkipped });
 }
 
 async function updateProjectNarrative(projectId, narrativeUpdate, date, source) {
@@ -521,20 +543,20 @@ async function updateProjectNarrative(projectId, narrativeUpdate, date, source) 
     })
     .eq('id', projectId);
 
-  console.log(`📝 Updated narrative for project ${projectId} (source: ${source})`);
+  logger.debug('📝 Updated narrative for project  (source: )', { projectId: projectId, source: source });
 }
 
 async function createPendingTask(taskData) {
-  console.log(`\n📝 [CREATE TASK] Attempting to create: "${taskData.title}"`);
-  console.log(`   Source: ${taskData.detected_from}`);
-  console.log(`   Priority: ${taskData.priority}`);
-  console.log(`   Confidence: ${taskData.confidence}`);
+  logger.debug('\n📝 [CREATE TASK] Attempting to create: ""', { title: taskData.title });
+  logger.info('Source:', { detected_from: taskData.detected_from });
+  logger.info('Priority:', { priority: taskData.priority });
+  logger.info('Confidence:', { confidence: taskData.confidence });
 
   // Check for duplicates first (90% similarity, last 7 days, all statuses)
   const isDuplicate = await isDuplicateTask(taskData.title, taskData.project_id);
 
   if (isDuplicate) {
-    console.log(`⏭️  [SKIPPED] Task blocked by duplicate detection: "${taskData.title}"\n`);
+    logger.info('⏭️  [SKIPPED] Task blocked by duplicate detection: ""\n', { title: taskData.title });
     return;
   }
 
@@ -553,20 +575,20 @@ async function createPendingTask(taskData) {
     task_type: 'task'
   };
 
-  console.log(`   💾 Inserting into database...`);
+  logger.info('💾 Inserting into database...');
   const { error, data } = await supabase
     .from('tasks')
     .insert(taskToInsert)
     .select('id');
 
   if (error) {
-    console.error(`   ❌ Failed to create task:`, error);
+    logger.error('❌ Failed to create task:');
     return;
   }
 
-  console.log(`✅ [SUCCESS] Created task: "${taskData.title}"`);
-  console.log(`   Task ID: ${data[0]?.id}`);
-  console.log(`   Status: pending\n`);
+  logger.info('✅ [SUCCESS] Created task: ""', { title: taskData.title });
+  logger.info('Task ID:', { id: data[0]?.id });
+  logger.info('Status: pending\n');
 }
 
 module.exports = {

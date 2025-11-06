@@ -1,5 +1,6 @@
 require('dotenv').config();
 const axios = require('axios');
+const logger = require('../../utils/logger');
 
 async function checkRawData() {
   const CALENDAR_FOLDER_ID = '15CJiwytPs1A0rAIectouqr8xExIYMiMf';
@@ -9,7 +10,7 @@ async function checkRawData() {
   const listResponse = await axios.get(listUrl);
   const file = listResponse.data.files[0];
 
-  console.log('📄 Checking file:', file.name);
+  logger.info('📄 Checking file:', { arg0: file.name });
 
   // Download file
   const downloadUrl = `https://www.googleapis.com/drive/v3/files/${file.id}?alt=media&key=${process.env.GOOGLE_API_KEY}`;
@@ -20,43 +21,43 @@ async function checkRawData() {
   const baileysEvent = events.find(e => e.subject && e.subject.includes('Baileys'));
   const therabodyEvent = events.find(e => e.subject && e.subject.includes('Therabody'));
 
-  console.log('\n📊 Total events in file:', events.length);
-  console.log();
+  logger.debug('\n📊 Total events in file:', { arg0: events.length });
+  logger.info();
 
   if (baileysEvent) {
-    console.log('✅ Found Baileys event:');
-    console.log('  Subject:', baileysEvent.subject);
-    console.log('  Has attendees field?', baileysEvent.attendees !== undefined);
-    console.log('  Attendees count:', baileysEvent.attendees ? baileysEvent.attendees.length : 0);
+    logger.info('✅ Found Baileys event:');
+    logger.info('  Subject:', { arg0: baileysEvent.subject });
+    logger.info('  Has attendees field?');
+    logger.info('  Attendees count:');
     if (baileysEvent.attendees && baileysEvent.attendees.length > 0) {
-      console.log('  Sample attendee:', JSON.stringify(baileysEvent.attendees[0], null, 2));
+      logger.info('  Sample attendee:', { arg1: null });
     }
-    console.log();
+    logger.info();
   }
 
   if (therabodyEvent) {
-    console.log('✅ Found Therabody event:');
-    console.log('  Subject:', therabodyEvent.subject);
-    console.log('  Has attendees field?', therabodyEvent.attendees !== undefined);
-    console.log('  Attendees count:', therabodyEvent.attendees ? therabodyEvent.attendees.length : 0);
+    logger.info('✅ Found Therabody event:');
+    logger.info('  Subject:', { arg0: therabodyEvent.subject });
+    logger.info('  Has attendees field?');
+    logger.info('  Attendees count:');
     if (therabodyEvent.attendees && therabodyEvent.attendees.length > 0) {
-      console.log('  Sample attendee:', JSON.stringify(therabodyEvent.attendees[0], null, 2));
+      logger.info('  Sample attendee:', { arg1: null });
     }
   }
 
   if (!baileysEvent && !therabodyEvent) {
-    console.log('⚠️  No Baileys or Therabody events found in file');
-    console.log('\nSample event structure (first event):');
+    logger.warn('⚠️  No Baileys or Therabody events found in file');
+    logger.info('\nSample event structure (first event):');
     const sample = events[0] || {};
-    console.log('  Keys:', Object.keys(sample).join(', '));
-    console.log('  Subject:', sample.subject);
-    console.log('  Has attendees?', sample.attendees !== undefined);
+    logger.info('  Keys:');
+    logger.info('  Subject:', { arg0: sample.subject });
+    logger.info('  Has attendees?');
   }
 }
 
 checkRawData()
   .then(() => process.exit(0))
   .catch(e => {
-    console.error('Error:', e.message);
+    logger.error('Error:', { arg0: e.message });
     process.exit(1);
   });

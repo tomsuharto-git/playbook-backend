@@ -1,8 +1,10 @@
+const logger = require('../../utils/logger');
+
 const { supabase } = require('./db/supabase-client');
 
 async function autoCleanupDuplicates() {
-  console.log('\n🧹 Auto Duplicate Task Cleanup\n');
-  console.log('═'.repeat(80));
+  logger.info('\n🧹 Auto Duplicate Task Cleanup\n');
+  logger.info('═'.repeat(80));
 
   // Get all pending email-based tasks
   const { data: tasks } = await supabase
@@ -14,11 +16,11 @@ async function autoCleanupDuplicates() {
     .order('created_at');
 
   if (!tasks || tasks.length === 0) {
-    console.log('✅ No pending email-based tasks found.');
+    logger.info('✅ No pending email-based tasks found.');
     return;
   }
 
-  console.log(`Found ${tasks.length} pending email-based tasks\n`);
+  logger.info('Found  pending email-based tasks\n', { length: tasks.length });
 
   // Group by email source
   const grouped = {};
@@ -33,11 +35,11 @@ async function autoCleanupDuplicates() {
   const duplicateGroups = Object.entries(grouped).filter(([_, tasks]) => tasks.length > 1);
 
   if (duplicateGroups.length === 0) {
-    console.log('✅ No duplicate tasks found!');
+    logger.info('✅ No duplicate tasks found!');
     return;
   }
 
-  console.log(`❌ Found ${duplicateGroups.length} emails with duplicate tasks:\n`);
+  logger.error('❌ Found  emails with duplicate tasks:\n', { length: duplicateGroups.length });
 
   let totalDuplicates = 0;
   const toKeep = [];
@@ -45,12 +47,14 @@ async function autoCleanupDuplicates() {
 
   duplicateGroups.forEach(([emailSource, tasks], idx) => {
     const emailId = emailSource.replace('email:', '').substring(0, 50);
-    console.log(`${idx + 1}. Email: ${emailId}...`);
-    console.log(`   ${tasks.length} tasks:\n`);
+    logger.info('. Email: ...', { idx + 1: idx + 1, emailId: emailId });
+    logger.info('tasks:\n', { length: tasks.length });
 
     tasks.forEach((task, i) => {
-      console.log(`   [${i + 1}] ${task.title}`);
-      console.log(`       Created: ${new Date(task.created_at).toLocaleString()}`);
+      const taskNumber = i + 1;
+      logger.info('task', { taskNumber: taskNumber, title: task.title });
+      const createdAt = new Date(task.created_at).toLocaleString();
+      logger.info('Created:', { createdAt: createdAt });
     });
 
     // Strategy: Keep the OLDEST task (first created), dismiss the rest
@@ -61,16 +65,16 @@ async function autoCleanupDuplicates() {
     toDismiss.push(...duplicates);
     totalDuplicates += duplicates.length;
 
-    console.log(`\n   ✅ KEEPING:    ${oldest.title}`);
-    console.log(`   ❌ DISMISSING: ${duplicates.length} duplicate(s)\n`);
+    logger.info('\n   ✅ KEEPING:', { title: oldest.title });
+    logger.error('❌ DISMISSING:  duplicate(s)\n', { length: duplicates.length });
   });
 
-  console.log('═'.repeat(80));
-  console.log(`\n📊 Summary:`);
-  console.log(`   Tasks to keep: ${toKeep.length}`);
-  console.log(`   Tasks to dismiss: ${toDismiss.length}\n`);
+  logger.info('═'.repeat(80));
+  logger.debug('\n📊 Summary:');
+  logger.info('Tasks to keep:', { length: toKeep.length });
+  logger.info('Tasks to dismiss: \n', { length: toDismiss.length });
 
-  console.log('🚀 Starting cleanup...\n');
+  logger.info('🚀 Starting cleanup...\n');
 
   // Dismiss duplicates
   let dismissed = 0;
@@ -84,20 +88,20 @@ async function autoCleanupDuplicates() {
       .eq('id', task.id);
 
     if (error) {
-      console.error(`   ❌ Error dismissing "${task.title}":`, error.message);
+      logger.error('❌ Error dismissing "":', { title: task.title });
     } else {
       dismissed++;
-      console.log(`   ✅ Dismissed: ${task.title}`);
+      logger.info('✅ Dismissed:', { title: task.title });
     }
   }
 
-  console.log('\n' + '═'.repeat(80));
-  console.log(`\n🎉 Cleanup complete!`);
-  console.log(`   Dismissed: ${dismissed} tasks`);
-  console.log(`   Kept: ${toKeep.length} tasks\n`);
+  logger.info('\n' + '═'.repeat(80));
+  logger.info('\n🎉 Cleanup complete!');
+  logger.info('Dismissed:  tasks', { dismissed: dismissed });
+  logger.info('Kept:  tasks\n', { length: toKeep.length });
 }
 
 autoCleanupDuplicates().catch(error => {
-  console.error('\n❌ Error:', error);
+  logger.error('\n❌ Error:', { arg0: error });
   process.exit(1);
 });

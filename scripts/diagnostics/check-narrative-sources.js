@@ -1,3 +1,5 @@
+const logger = require('../../utils/logger');
+
 const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config();
 
@@ -15,7 +17,7 @@ async function checkNarrativeSources() {
     .single();
 
   if (!project) {
-    console.log('ITA Airways project not found');
+    logger.info('ITA Airways project not found');
     return;
   }
 
@@ -26,13 +28,13 @@ async function checkNarrativeSources() {
     .eq('project_id', project.id)
     .order('created_at', { ascending: false });
 
-  console.log('\n📋 ITA Airways Narrative Entries:\n');
+  logger.info('\n📋 ITA Airways Narrative Entries:\n');
   notes?.forEach(note => {
-    console.log(`Title: ${note.title}`);
-    console.log(`Source: ${note.source}`);
-    console.log(`Date: ${note.date}`);
-    console.log(`Created: ${note.created_at}`);
-    console.log(`---\n`);
+    logger.info('Title:', { title: note.title });
+    logger.info('Source:', { source: note.source });
+    logger.info('Date:', { date: note.date });
+    logger.info('Created:', { created_at: note.created_at });
+    logger.info('---\n');
   });
 
   // Also check CAVA
@@ -49,13 +51,13 @@ async function checkNarrativeSources() {
       .eq('project_id', cavaProject.id)
       .order('created_at', { ascending: false });
 
-    console.log('\n📋 CAVA Narrative Entries:\n');
+    logger.info('\n📋 CAVA Narrative Entries:\n');
     cavaNotes?.forEach(note => {
-      console.log(`Title: ${note.title}`);
-      console.log(`Source: ${note.source}`);
-      console.log(`Date: ${note.date}`);
-      console.log(`Created: ${note.created_at}`);
-      console.log(`---\n`);
+      logger.info('Title:', { title: note.title });
+      logger.info('Source:', { source: note.source });
+      logger.info('Date:', { date: note.date });
+      logger.info('Created:', { created_at: note.created_at });
+      logger.info('---\n');
     });
   }
 }

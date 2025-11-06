@@ -1,3 +1,5 @@
+const logger = require('../utils/logger').service('google-calendar');
+
 const { google } = require('googleapis');
 const { normalizeGoogleEvent, filterEventsByDate } = require('./calendar-normalizer');
 const { getGoogleCalendarCredentials, getGoogleCalendarToken } = require('../config/google-calendar-config');
@@ -26,7 +28,7 @@ async function getCalendarClient() {
 
     return google.calendar({ version: 'v3', auth: oAuth2Client });
   } catch (error) {
-    console.error('Error loading Google Calendar credentials:', error.message);
+    logger.error('Error loading Google Calendar credentials:', { arg0: error.message });
     throw error;
   }
 }
@@ -59,11 +61,11 @@ async function fetchCalendarEvents(calendar, calendarId, startTime, endTime) {
       return true;
     });
 
-    console.log(`  ✅ Fetched ${validEvents.length} events from ${CALENDARS[calendarId]} (${events.length - validEvents.length} filtered out)`);
+    logger.info('✅ Fetched  events from  ( filtered out)', { length: validEvents.length, CALENDARS[calendarId]: CALENDARS[calendarId], length: events.length - validEvents.length });
 
     // Debug: Log attendee counts
     const eventsWithAttendees = validEvents.filter(e => e.attendees && e.attendees.length > 0);
-    console.log(`     👥 ${eventsWithAttendees.length} events have attendees`);
+    logger.info('👥  events have attendees', { length: eventsWithAttendees.length });
 
     // Normalize events using shared normalizer
     // normalizeGoogleEvent() returns null for invalid events (no summary)
@@ -73,12 +75,12 @@ async function fetchCalendarEvents(calendar, calendarId, startTime, endTime) {
 
     const rejectedCount = validEvents.length - normalizedEvents.length;
     if (rejectedCount > 0) {
-      console.log(`     🚫 [LAYER 1] Rejected ${rejectedCount} invalid Google event(s)`);
+      logger.info('🚫 [LAYER 1] Rejected  invalid Google event(s)', { rejectedCount: rejectedCount });
     }
 
     return normalizedEvents;
   } catch (error) {
-    console.error(`  ❌ Error fetching from ${calendarId}:`, error.message);
+    logger.error('❌ Error fetching from :', { calendarId: calendarId });
     return [];
   }
 }
@@ -88,7 +90,7 @@ async function fetchCalendarEvents(calendar, calendarId, startTime, endTime) {
  */
 async function fetchTodaysEvents(targetDate = new Date()) {
   try {
-    console.log('📅 Fetching Google Calendar events...');
+    logger.info('📅 Fetching Google Calendar events...');
 
     const calendar = await getCalendarClient();
 
@@ -107,7 +109,7 @@ async function fetchTodaysEvents(targetDate = new Date()) {
     const endTime = new Date(targetDate);
     endTime.setHours(23, 59, 59, 999);
 
-    console.log(`  Date: ${targetDateStr}`);
+    logger.info('Date:', { targetDateStr: targetDateStr });
 
     // Fetch from all calendars in parallel
     const calendarIds = Object.keys(CALENDARS);
@@ -119,12 +121,12 @@ async function fetchTodaysEvents(targetDate = new Date()) {
 
     // Flatten all events
     const allEvents = eventArrays.flat();
-    console.log(`  📊 Total events from API: ${allEvents.length}`);
+    logger.debug('📊 Total events from API:', { length: allEvents.length });
 
     // Filter to only include events that START on target date (in ET)
     // This removes multi-day events from previous days
     const filteredEvents = filterEventsByDate(allEvents, targetDateStr);
-    console.log(`  ✅ Filtered to ${filteredEvents.length} events for ${targetDateStr}`);
+    logger.info('✅ Filtered to  events for', { length: filteredEvents.length, targetDateStr: targetDateStr });
 
     // Sort by start time
     filteredEvents.sort((a, b) => {
@@ -133,10 +135,10 @@ async function fetchTodaysEvents(targetDate = new Date()) {
       return aTime.localeCompare(bTime);
     });
 
-    console.log(`  ✅ Fetched ${filteredEvents.length} Google Calendar events\n`);
+    logger.info('✅ Fetched  Google Calendar events\n', { length: filteredEvents.length });
     return filteredEvents;
   } catch (error) {
-    console.error('❌ Error fetching Google Calendar events:', error);
+    logger.error('❌ Error fetching Google Calendar events:', { arg0: error });
     throw error;
   }
 }

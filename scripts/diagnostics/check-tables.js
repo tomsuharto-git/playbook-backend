@@ -1,4 +1,6 @@
 // Quick script to check if Phase 2 tables exist in Supabase
+const logger = require('../../utils/logger');
+
 const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config();
 
@@ -8,7 +10,7 @@ const supabase = createClient(
 );
 
 async function checkTables() {
-  console.log('\n🔍 Checking Phase 2 Tables in Supabase...\n');
+  logger.debug('\n🔍 Checking Phase 2 Tables in Supabase...\n');
 
   try {
     // Check events table
@@ -17,11 +19,11 @@ async function checkTables() {
       .select('*', { count: 'exact', head: true });
 
     if (eventsError) {
-      console.log('❌ events table: NOT FOUND');
-      console.log('   Error:', eventsError.message);
+      logger.error('❌ events table: NOT FOUND');
+      logger.error('   Error:', { arg0: eventsError.message });
     } else {
-      console.log('✅ events table: EXISTS');
-      console.log(`   Records: ${eventsCount || 0}`);
+      logger.info('✅ events table: EXISTS');
+      logger.info('Records:', { eventsCount || 0: eventsCount || 0 });
     }
 
     // Check narratives table
@@ -30,11 +32,11 @@ async function checkTables() {
       .select('*', { count: 'exact', head: true });
 
     if (narrativesError) {
-      console.log('❌ narratives table: NOT FOUND');
-      console.log('   Error:', narrativesError.message);
+      logger.error('❌ narratives table: NOT FOUND');
+      logger.error('   Error:', { arg0: narrativesError.message });
     } else {
-      console.log('✅ narratives table: EXISTS');
-      console.log(`   Records: ${narrativesCount || 0}`);
+      logger.info('✅ narratives table: EXISTS');
+      logger.info('Records:', { narrativesCount || 0: narrativesCount || 0 });
     }
 
     // Check news table
@@ -43,30 +45,30 @@ async function checkTables() {
       .select('*', { count: 'exact', head: true });
 
     if (newsError) {
-      console.log('❌ news table: NOT FOUND');
-      console.log('   Error:', newsError.message);
+      logger.error('❌ news table: NOT FOUND');
+      logger.error('   Error:', { arg0: newsError.message });
     } else {
-      console.log('✅ news table: EXISTS');
-      console.log(`   Records: ${newsCount || 0}`);
+      logger.info('✅ news table: EXISTS');
+      logger.info('Records:', { newsCount || 0: newsCount || 0 });
     }
 
-    console.log('\n---\n');
+    logger.info('\n---\n');
 
     // Summary
     const tablesExist = !eventsError && !narrativesError && !newsError;
     if (tablesExist) {
-      console.log('✅ All Phase 2 tables exist!');
+      logger.info('✅ All Phase 2 tables exist!');
       if (eventsCount === 0 && narrativesCount === 0) {
-        console.log('⚠️  Tables are empty - data migration may be needed');
+        logger.warn('⚠️  Tables are empty - data migration may be needed');
       } else {
-        console.log('✅ Tables have data - migration appears complete!');
+        logger.info('✅ Tables have data - migration appears complete!');
       }
     } else {
-      console.log('❌ Some tables are missing - migration needs to be run');
+      logger.error('❌ Some tables are missing - migration needs to be run');
     }
 
   } catch (error) {
-    console.error('Error checking tables:', error);
+    logger.error('Error checking tables:', { arg0: error });
   }
 }
 

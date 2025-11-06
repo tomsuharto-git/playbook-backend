@@ -1,3 +1,5 @@
+const logger = require('../utils/logger').service('gmail-client');
+
 /**
  * Gmail API Client
  * Uses official Gmail API (not MCP)
@@ -43,16 +45,16 @@ class GmailClient {
           saveGmailToken(currentToken);
         }
         if (tokens.access_token) {
-          console.log('🔄 Access token refreshed');
+          logger.info('🔄 Access token refreshed');
         }
       });
 
       this.auth = oAuth2Client;
       this.gmail = google.gmail({ version: 'v1', auth: oAuth2Client });
       
-      console.log('✅ Gmail API client initialized');
+      logger.info('✅ Gmail API client initialized');
     } catch (error) {
-      console.error('❌ Gmail API initialization error:', error.message);
+      logger.error('❌ Gmail API initialization error:', { arg0: error.message });
       throw error;
     }
   }
@@ -76,7 +78,7 @@ class GmailClient {
 
       return fullMessages.filter(m => m !== null);
     } catch (error) {
-      console.error('Gmail search error:', error.message);
+      logger.error('Gmail search error:', { arg0: error.message });
       return [];
     }
   }
@@ -129,7 +131,7 @@ class GmailClient {
         hasAttachments: message.payload.parts?.some(p => p.filename) || false
       };
     } catch (error) {
-      console.error(`Gmail read error (${messageId}):`, error.message);
+      logger.error('Gmail read error ():', { messageId: messageId });
       return null;
     }
   }
@@ -141,7 +143,7 @@ class GmailClient {
       const response = await this.gmail.users.getProfile({ userId: 'me' });
       return response.data;
     } catch (error) {
-      console.error('Gmail profile error:', error.message);
+      logger.error('Gmail profile error:', { arg0: error.message });
       return null;
     }
   }
@@ -153,7 +155,7 @@ class GmailClient {
       const response = await this.gmail.users.labels.list({ userId: 'me' });
       return response.data.labels || [];
     } catch (error) {
-      console.error('Gmail labels error:', error.message);
+      logger.error('Gmail labels error:', { arg0: error.message });
       return [];
     }
   }

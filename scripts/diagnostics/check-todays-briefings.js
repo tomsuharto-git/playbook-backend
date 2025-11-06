@@ -1,8 +1,10 @@
+const logger = require('../../utils/logger');
+
 const { supabase } = require('./db/supabase-client');
 
 (async () => {
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
-  console.log('Checking briefings for:', today);
+  logger.info('Checking briefings for:', { arg0: today });
 
   const { data, error } = await supabase
     .from('daily_briefs')
@@ -11,19 +13,19 @@ const { supabase } = require('./db/supabase-client');
     .single();
 
   if (error || !data) {
-    console.log('No briefings found for today');
+    logger.info('No briefings found for today');
     process.exit(0);
   }
 
   const eventsWithProjects = data.calendar_events.filter(e => e.project_name);
-  console.log(`\nFound ${eventsWithProjects.length} events with projects:\n`);
+  logger.info('\nFound  events with projects:\n', { length: eventsWithProjects.length });
 
   eventsWithProjects.slice(0, 3).forEach(e => {
-    console.log(`📅 ${e.summary}`);
-    console.log(`   Project: ${e.project_name}`);
-    console.log(`   Has briefing: ${e.ai_briefing ? 'YES' : 'NO'}`);
+    logger.info('📅', { summary: e.summary });
+    logger.info('Project:', { project_name: e.project_name });
+    logger.info('Has briefing:', { ai_briefing ? 'YES' : 'NO': e.ai_briefing ? 'YES' : 'NO' });
     if (e.ai_briefing) {
-      console.log(`   Briefing preview:\n   ${e.ai_briefing.substring(0, 400)}\n`);
+      logger.info('Briefing preview:\n   \n', { substring(0, 400): e.ai_briefing.substring(0, 400) });
     }
   });
 

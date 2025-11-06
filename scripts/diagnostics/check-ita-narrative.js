@@ -1,8 +1,10 @@
+const logger = require('../../utils/logger');
+
 require('dotenv').config();
 const { supabase } = require('./db/supabase-client');
 
 (async () => {
-  console.log('Checking ITA Airlines project narrative logs...\n');
+  logger.info('Checking ITA Airlines project narrative logs...\n');
 
   // Find ITA project
   const { data: projects, error: projError } = await supabase
@@ -12,45 +14,45 @@ const { supabase } = require('./db/supabase-client');
     .order('created_at', { ascending: false });
 
   if (projError) {
-    console.error('Error:', projError);
+    logger.error('Error:', { arg0: projError });
     return;
   }
 
   if (!projects || projects.length === 0) {
-    console.log('❌ No ITA Airlines project found in database');
+    logger.error('❌ No ITA Airlines project found in database');
     return;
   }
 
   const project = projects[0];
-  console.log('=== ITA AIRLINES PROJECT ===');
-  console.log('ID:', project.id);
-  console.log('Name:', project.name);
-  console.log('Status:', project.status || 'Unknown');
-  console.log('Created:', project.created_at);
-  console.log();
+  logger.info('=== ITA AIRLINES PROJECT ===');
+  logger.info('ID:', { arg0: project.id });
+  logger.info('Name:', { arg0: project.name });
+  logger.info('Status:');
+  logger.info('Created:', { arg0: project.created_at });
+  logger.info();
 
   if (project.narrative && Array.isArray(project.narrative)) {
-    console.log('=== NARRATIVE LOGS IN DATABASE ===');
-    console.log(`Total entries: ${project.narrative.length}`);
-    console.log();
+    logger.info('=== NARRATIVE LOGS IN DATABASE ===');
+    logger.info('Total entries:', { length: project.narrative.length });
+    logger.info();
 
     const last5 = project.narrative.slice(0, 5);
     last5.forEach((entry, idx) => {
-      console.log(`--- Narrative Log ${idx + 1} ---`);
-      console.log(`Date: ${entry.date || 'No date'}`);
-      console.log(`Source: ${entry.source || 'unknown'}`);
-      console.log(`Headline: ${entry.headline || 'No headline'}`);
+      logger.info('--- Narrative Log  ---', { idx + 1: idx + 1 });
+      logger.info('Date:', { date || 'No date': entry.date || 'No date' });
+      logger.info('Source:', { source || 'unknown': entry.source || 'unknown' });
+      logger.info('Headline:', { headline || 'No headline': entry.headline || 'No headline' });
       if (entry.bullets && entry.bullets.length > 0) {
-        console.log('Bullets:');
-        entry.bullets.forEach(bullet => console.log(`  • ${bullet}`));
+        logger.info('Bullets:');
+        entry.bullets.forEach(bullet => logger.info('•', { bullet: bullet });
       }
-      console.log();
+      logger.info();
     });
 
-    console.log('These are the exact narrative logs that would be included in your briefing context.');
+    logger.info('These are the exact narrative logs that would be included in your briefing context.');
   } else {
-    console.log('⚠️  NO NARRATIVE LOGS IN DATABASE');
-    console.log('The narrative field is empty or null.');
-    console.log('This means NO narrative context was provided to the AI when generating your briefing.');
+    logger.warn('⚠️  NO NARRATIVE LOGS IN DATABASE');
+    logger.info('The narrative field is empty or null.');
+    logger.info('This means NO narrative context was provided to the AI when generating your briefing.');
   }
 })();

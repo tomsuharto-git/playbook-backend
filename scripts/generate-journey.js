@@ -1,5 +1,6 @@
 const { createClient } = require('@supabase/supabase-js');
 const Anthropic = require('@anthropic-ai/sdk');
+const logger = require('../utils/logger');
 require('dotenv').config();
 
 const supabase = createClient(
@@ -12,7 +13,7 @@ const anthropic = new Anthropic({
 });
 
 async function generateJourneyForProject(projectName) {
-  console.log(`\n🎯 Generating journey for ${projectName}...\n`);
+  logger.info('\n🎯 Generating journey for ...\n', { projectName: projectName });
 
   // 1. Fetch project details
   const { data: project, error: projectError } = await supabase
@@ -22,7 +23,7 @@ async function generateJourneyForProject(projectName) {
     .single();
 
   if (projectError) {
-    console.error('Error fetching project:', projectError);
+    logger.error('Error fetching project:', { arg0: projectError });
     return;
   }
 
@@ -146,7 +147,7 @@ Return ONLY valid JSON in this exact format:
 }`;
   }
   // 5. Call Claude API
-  console.log('📞 Calling Claude API...\n');
+  logger.info('📞 Calling Claude API...\n');
 
   const message = await anthropic.messages.create({
     model: 'claude-haiku-4-5',
@@ -158,7 +159,7 @@ Return ONLY valid JSON in this exact format:
   });
 
   let responseText = message.content[0].text;
-  console.log('📋 Claude Response:\n', responseText, '\n');
+  logger.info('📋 Claude Response:\n', { arg0: responseText });
 
   // Remove markdown code blocks if present
   responseText = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
@@ -168,7 +169,7 @@ Return ONLY valid JSON in this exact format:
   try {
     aiInsights = JSON.parse(responseText);
   } catch (e) {
-    console.error('❌ Failed to parse JSON response:', e);
+    logger.error('❌ Failed to parse JSON response:', { arg0: e });
     return;
   }
 
@@ -183,15 +184,15 @@ Return ONLY valid JSON in this exact format:
     .select();
 
   if (updateError) {
-    console.error('❌ Error updating project:', updateError);
+    logger.error('❌ Error updating project:', { arg0: updateError });
   } else {
-    console.log('✅ Successfully generated journey for', projectName);
-    console.log('\n📊 Generated Insights:');
-    console.log('Status:', aiInsights.status);
-    console.log('Summary:', aiInsights.status_summary);
-    console.log('\nMilestones:');
+    logger.info('✅ Successfully generated journey for', { arg0: projectName });
+    logger.debug('\n📊 Generated Insights:');
+    logger.info('Status:', { arg0: aiInsights.status });
+    logger.info('Summary:', { arg0: aiInsights.status_summary });
+    logger.info('\nMilestones:');
     aiInsights.milestones?.forEach((m, i) => {
-      console.log(`  ${i + 1}. ${m.description} (${m.status}) - ${m.target_date}`);
+      logger.info('.  () -', { i + 1: i + 1, description: m.description, status: m.status, target_date: m.target_date });
     });
   }
 }
@@ -200,8 +201,8 @@ Return ONLY valid JSON in this exact format:
  * Generate milestones for all active Code projects
  */
 async function generateCodeMilestones() {
-  console.log('\n🚀 Generating Next Steps for Code Projects\n');
-  console.log('='.repeat(60));
+  logger.info('\n🚀 Generating Next Steps for Code Projects\n');
+  logger.info('='.repeat(60));
 
   try {
     const { data: codeProjects, error } = await supabase
@@ -211,27 +212,27 @@ async function generateCodeMilestones() {
       .eq('status', 'active');
 
     if (error) {
-      console.error('❌ Error fetching Code projects:', error);
+      logger.error('❌ Error fetching Code projects:', { arg0: error });
       return;
     }
 
     if (!codeProjects || codeProjects.length === 0) {
-      console.log('ℹ️  No active Code projects found');
+      logger.info('ℹ️  No active Code projects found');
       return;
     }
 
-    console.log(`\n✅ Found ${codeProjects.length} active Code projects\n`);
+    logger.info('\n✅ Found  active Code projects\n', { length: codeProjects.length });
 
     for (const project of codeProjects) {
-      console.log(`\n📦 Processing: ${project.name}`);
+      logger.info('\n📦 Processing:', { name: project.name });
       await generateJourneyForProject(project.name);
     }
 
-    console.log('\n' + '='.repeat(60));
-    console.log(`\n✨ Generated next steps for ${codeProjects.length} Code projects\n`);
+    logger.info('\n' + '='.repeat(60));
+    logger.info('\n✨ Generated next steps for  Code projects\n', { length: codeProjects.length });
 
   } catch (error) {
-    console.error('❌ Unexpected error in generateCodeMilestones:', error);
+    logger.error('❌ Unexpected error in generateCodeMilestones:', { arg0: error });
   }
 }
 
@@ -240,23 +241,23 @@ async function generateCodeMilestones() {
  */
 function startCodeMilestonesSchedule() {
   const cron = require('node-cron');
-  console.log('⏰ Code milestones schedule started (6am, 12pm, 6pm)');
+  logger.info('⏰ Code milestones schedule started (6am, 12pm, 6pm)');
 
   // 6:00 AM ET
   cron.schedule('0 6 * * *', async () => {
-    console.log('\n⏰ [6am] Code milestones generation triggered');
+    logger.info('\n⏰ [6am] Code milestones generation triggered');
     await generateCodeMilestones();
   });
 
   // 12:00 PM ET
   cron.schedule('0 12 * * *', async () => {
-    console.log('\n⏰ [12pm] Code milestones generation triggered');
+    logger.info('\n⏰ [12pm] Code milestones generation triggered');
     await generateCodeMilestones();
   });
 
   // 6:00 PM ET
   cron.schedule('0 18 * * *', async () => {
-    console.log('\n⏰ [6pm] Code milestones generation triggered');
+    logger.info('\n⏰ [6pm] Code milestones generation triggered');
     await generateCodeMilestones();
   });
 }

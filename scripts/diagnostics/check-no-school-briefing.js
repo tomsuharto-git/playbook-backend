@@ -1,8 +1,10 @@
+const logger = require('../../utils/logger');
+
 require('dotenv').config();
 const { supabase } = require('./db/supabase-client');
 
 async function checkNoSchoolBriefing() {
-  console.log('📅 Checking "No School" briefing with new narrative context...\n');
+  logger.info('📅 Checking "No School" briefing with new narrative context...\n');
 
   const { data, error } = await supabase
     .from('daily_briefs')
@@ -11,7 +13,7 @@ async function checkNoSchoolBriefing() {
     .single();
 
   if (error || !data) {
-    console.error('❌ Error:', error?.message);
+    logger.error('❌ Error:');
     return;
   }
 
@@ -20,15 +22,15 @@ async function checkNoSchoolBriefing() {
   );
 
   if (!noSchool) {
-    console.log('❌ No School event not found');
+    logger.error('❌ No School event not found');
     return;
   }
 
-  console.log('📚 No School Event:');
-  console.log('   Project:', noSchool.project_name);
-  console.log('   Has briefing:', noSchool.ai_briefing ? 'YES' : 'NO');
-  console.log('\n📝 Full Briefing:\n');
-  console.log(noSchool.ai_briefing || 'No briefing available');
+  logger.info('📚 No School Event:');
+  logger.info('   Project:', { arg0: noSchool.project_name });
+  logger.info('   Has briefing:');
+  logger.debug('\n📝 Full Briefing:\n');
+  logger.info(noSchool.ai_briefing || 'No briefing available');
 }
 
 checkNoSchoolBriefing().then(() => process.exit(0));

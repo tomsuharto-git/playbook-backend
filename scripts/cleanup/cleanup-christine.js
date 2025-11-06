@@ -1,3 +1,5 @@
+const logger = require('../../utils/logger');
+
 const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config();
 
@@ -12,7 +14,7 @@ async function removeDuplicate() {
     .eq('status', 'pending')
     .order('created_at', { ascending: false });
 
-  console.log('\n🔍 Found Christine tasks:', tasks);
+  logger.debug('\n🔍 Found Christine tasks:', { arg0: tasks });
 
   if (tasks && tasks.length > 1) {
     // Keep the most recent, delete the other
@@ -23,17 +25,17 @@ async function removeDuplicate() {
       .eq('id', toDelete.id);
 
     if (error) {
-      console.error('❌ Error:', error);
+      logger.error('❌ Error:', { arg0: error });
     } else {
-      console.log(`\n✅ Deleted older task: "${toDelete.title}"`);
-      console.log(`✅ Kept most recent: "${tasks[0].title}"`);
-      console.log('\n💡 Now only 1 Christine task remains!\n');
+      logger.info('\n✅ Deleted older task: ""', { title: toDelete.title });
+      logger.info('✅ Kept most recent: ""', { title: tasks[0].title });
+      logger.info('\n💡 Now only 1 Christine task remains!\n');
     }
   }
   process.exit(0);
 }
 
 removeDuplicate().catch(err => {
-  console.error(err);
+  logger.error(err);
   process.exit(1);
 });

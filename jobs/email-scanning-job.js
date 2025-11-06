@@ -7,6 +7,7 @@
 const cron = require('node-cron');
 const GmailClient = require('../services/gmail-client');
 const unifiedEmailHandler = require('../services/unified-email-handler');
+const logger = require('../utils/logger').job('email-scanning-job');
 
 // Concurrency protection
 let isRunning = false;
@@ -18,13 +19,13 @@ async function scanGmail() {
   const gmailClient = new GmailClient();
 
   try {
-    console.log('📧 Scanning Gmail...');
+    logger.info('📧 Scanning Gmail...');
 
     // Search for emails from last 2 hours (to avoid reprocessing everything on each scan)
     // Gmail query: newer_than:2h (emails from last 2 hours)
     const emails = await gmailClient.search('newer_than:2h', 50);
 
-    console.log(`   Found ${emails.length} recent Gmail messages`);
+    logger.info('Found  recent Gmail messages', { length: emails.length });
 
     let processed = 0;
     let skipped = 0;
@@ -36,7 +37,7 @@ async function scanGmail() {
         skipped++;
       } else if (result.success) {
         processed++;
-        console.log(`   ✅ Processed: ${email.subject}`);
+        logger.info('✅ Processed:', { subject: email.subject });
       }
     }
 
@@ -48,7 +49,7 @@ async function scanGmail() {
     };
 
   } catch (error) {
-    console.error('❌ Gmail scanning error:', error.message);
+    logger.error('❌ Gmail scanning error:', { arg0: error.message });
     return {
       source: 'gmail',
       error: error.message
@@ -61,7 +62,7 @@ async function scanGmail() {
  */
 async function scanOutlook() {
   try {
-    console.log('📧 Scanning Outlook (via Drive)...');
+    logger.info('📧 Scanning Outlook (via Drive)...');
 
     // For Outlook, we're reading from the Google Drive JSON file
     // This is a snapshot approach - we need to check when it was last updated
@@ -70,7 +71,7 @@ async function scanOutlook() {
     // TODO: Implement Outlook email scanning
     // For now, we'll skip this since Outlook is primarily used for calendar
 
-    console.log('   ⏭️  Outlook email scanning not yet implemented (calendar works)');
+    logger.info('   ⏭️  Outlook email scanning not yet implemented (calendar works)');
 
     return {
       source: 'outlook',
@@ -79,7 +80,7 @@ async function scanOutlook() {
     };
 
   } catch (error) {
-    console.error('❌ Outlook scanning error:', error.message);
+    logger.error('❌ Outlook scanning error:', { arg0: error.message });
     return {
       source: 'outlook',
       error: error.message
@@ -93,13 +94,13 @@ async function scanOutlook() {
 async function runEmailScanning() {
   // Check if another job is already running
   if (isRunning) {
-    console.log('⏭️  Email scanning already in progress, skipping this run');
+    logger.info('⏭️  Email scanning already in progress, skipping this run');
     return { success: false, message: 'Already running' };
   }
 
   isRunning = true;
-  console.log('\n🔍 Email Scanning job starting...');
-  console.log('🔒 Acquired email scanning lock');
+  logger.debug('\n🔍 Email Scanning job starting...');
+  logger.info('🔒 Acquired email scanning lock');
 
   const startTime = Date.now();
   const results = {
@@ -117,8 +118,11 @@ async function runEmailScanning() {
     const duration = ((Date.now() - startTime) / 1000).toFixed(2);
 
     // Summary
-    console.log(`\n✅ Email scanning completed in ${duration}s`);
-    console.log(`   Gmail: ${results.gmail.processed || 0} processed, ${results.gmail.skipped || 0} skipped`);
+    logger.info('\n✅ Email scanning completed in s', { duration: duration });
+    logger.info('Gmail: processed, skipped', {
+      processed: results.gmail.processed || 0,
+      skipped: results.gmail.skipped || 0
+    });
 
     return {
       success: true,
@@ -128,7 +132,7 @@ async function runEmailScanning() {
 
   } catch (error) {
     const duration = ((Date.now() - startTime) / 1000).toFixed(2);
-    console.error(`❌ Email scanning error after ${duration}s:`, error);
+    logger.error('❌ Email scanning error after s:', { duration: duration });
     return {
       success: false,
       error: error.message,
@@ -137,7 +141,7 @@ async function runEmailScanning() {
 
   } finally {
     isRunning = false;
-    console.log('🔓 Released email scanning lock\n');
+    logger.info('🔓 Released email scanning lock\n');
   }
 }
 
@@ -160,7 +164,7 @@ function scheduleEmailScanning() {
     }
   );
 
-  console.log(`⏰ Email scanning scheduled: Every 30 minutes (${timezone})`);
+  logger.info('⏰ Email scanning scheduled: Every 30 minutes ()', { timezone: timezone });
 
   return schedule;
 }

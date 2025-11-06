@@ -1,3 +1,5 @@
+const logger = require('../../utils/logger');
+
 /**
  * Cleanup Invalid Events
  * Removes events with no title or no time from daily_briefs table
@@ -7,7 +9,7 @@
 const { supabase } = require('./db/supabase-client');
 
 async function cleanupInvalidEvents() {
-  console.log('🧹 [LAYER 4] Cleaning up invalid events from daily_briefs...\n');
+  logger.info('🧹 [LAYER 4] Cleaning up invalid events from daily_briefs...\n');
 
   try {
     // Fetch all daily briefs
@@ -16,11 +18,11 @@ async function cleanupInvalidEvents() {
       .select('*');
 
     if (error) {
-      console.error('Error fetching briefs:', error);
+      logger.error('Error fetching briefs:', { arg0: error });
       return { success: false, error: error.message };
     }
 
-    console.log(`Found ${briefs.length} daily briefs to check`);
+    logger.info('Found  daily briefs to check', { length: briefs.length });
 
     let totalRemoved = 0;
     let totalKept = 0;
@@ -35,12 +37,12 @@ async function cleanupInvalidEvents() {
         const hasValidTime = event.start?.dateTime || event.start?.date;
 
         if (!hasValidTitle) {
-          console.log(`  🚫 [LAYER 4] Removing event with invalid title: "${title}" from ${brief.date}`);
+          logger.info('🚫 [LAYER 4] Removing event with invalid title: "" from', { title: title, date: brief.date });
           return false;
         }
 
         if (!hasValidTime) {
-          console.log(`  🚫 [LAYER 4] Removing event with no time: "${title}" from ${brief.date}`);
+          logger.info('🚫 [LAYER 4] Removing event with no time: "" from', { title: title, date: brief.date });
           return false;
         }
 
@@ -55,7 +57,7 @@ async function cleanupInvalidEvents() {
           .update({ calendar_events: validEvents })
           .eq('date', brief.date);
 
-        console.log(`  ✅ [LAYER 4] ${brief.date}: Removed ${removed} invalid events, kept ${validEvents.length}`);
+        logger.info('✅ [LAYER 4] : Removed  invalid events, kept', { date: brief.date, removed: removed, length: validEvents.length });
         totalRemoved += removed;
         totalKept += validEvents.length;
       } else {
@@ -64,14 +66,14 @@ async function cleanupInvalidEvents() {
     }
 
     if (totalRemoved > 0) {
-      console.log(`\n🛡️  [LAYER 4] Cleanup complete! Removed ${totalRemoved} invalid events, kept ${totalKept}\n`);
+      logger.info('\n🛡️  [LAYER 4] Cleanup complete! Removed  invalid events, kept \n', { totalRemoved: totalRemoved, totalKept: totalKept });
     } else {
-      console.log(`\n✅ [LAYER 4] No invalid events found (all ${totalKept} events valid)\n`);
+      logger.info('\n✅ [LAYER 4] No invalid events found (all  events valid)\n', { totalKept: totalKept });
     }
 
     return { success: true, removed: totalRemoved, kept: totalKept };
   } catch (err) {
-    console.error('Error during cleanup:', err);
+    logger.error('Error during cleanup:', { arg0: err });
     return { success: false, error: err.message };
   }
 }

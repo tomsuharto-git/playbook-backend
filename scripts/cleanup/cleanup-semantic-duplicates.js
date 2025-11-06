@@ -1,3 +1,5 @@
+const logger = require('../../utils/logger');
+
 const { supabase } = require('./db/supabase-client');
 
 /**
@@ -20,8 +22,8 @@ function calculateSimilarity(str1, str2) {
 }
 
 async function cleanupSemanticDuplicates() {
-  console.log('\n🧹 Semantic Duplicate Task Cleanup\n');
-  console.log('═'.repeat(80));
+  logger.info('\n🧹 Semantic Duplicate Task Cleanup\n');
+  logger.info('═'.repeat(80));
 
   // Get all pending email-based tasks
   const { data: tasks } = await supabase
@@ -32,11 +34,11 @@ async function cleanupSemanticDuplicates() {
     .order('created_at');
 
   if (!tasks || tasks.length === 0) {
-    console.log('✅ No pending email-based tasks found.');
+    logger.info('✅ No pending email-based tasks found.');
     return;
   }
 
-  console.log(`Found ${tasks.length} pending email-based tasks\n`);
+  logger.info('Found  pending email-based tasks\n', { length: tasks.length });
 
   // Group by title similarity (90%+ similar)
   const groups = [];
@@ -64,39 +66,39 @@ async function cleanupSemanticDuplicates() {
   }
 
   if (groups.length === 0) {
-    console.log('✅ No semantic duplicates found!');
+    logger.info('✅ No semantic duplicates found!');
     return;
   }
 
-  console.log(`❌ Found ${groups.length} groups of similar tasks:\n`);
+  logger.error('❌ Found  groups of similar tasks:\n', { length: groups.length });
 
   const toDismiss = [];
 
   groups.forEach((group, idx) => {
-    console.log(`${idx + 1}. "${group[0].title}"`);
-    console.log(`   ${group.length} similar tasks:\n`);
+    logger.info('. ""', { idx + 1: idx + 1, title: group[0].title });
+    logger.info('similar tasks:\n', { length: group.length });
 
     group.forEach((task, i) => {
       const emailId = task.detected_from.replace('email:', '').substring(0, 40);
-      console.log(`   [${i + 1}] ${task.title}`);
-      console.log(`       Created: ${new Date(task.created_at).toLocaleString()}`);
-      console.log(`       Email: ...${emailId.slice(-15)}`);
+      logger.info('[]', { i + 1: i + 1, title: task.title });
+      logger.info('Created:', { toLocaleString(): new Date(task.created_at).toLocaleString() });
+      logger.info('Email: ...', { slice(-15): emailId.slice(-15) });
     });
 
     // Keep the oldest, dismiss the rest
     const duplicates = group.slice(1);
     toDismiss.push(...duplicates);
 
-    console.log(`\n   ✅ KEEPING:    Task #1 (oldest)`);
-    console.log(`   ❌ DISMISSING: ${duplicates.length} duplicate(s)\n`);
+    logger.info('\n   ✅ KEEPING:    Task #1 (oldest)');
+    logger.error('❌ DISMISSING:  duplicate(s)\n', { length: duplicates.length });
   });
 
-  console.log('═'.repeat(80));
-  console.log(`\n📊 Summary:`);
-  console.log(`   Tasks to keep: ${groups.length}`);
-  console.log(`   Tasks to dismiss: ${toDismiss.length}\n`);
+  logger.info('═'.repeat(80));
+  logger.debug('\n📊 Summary:');
+  logger.info('Tasks to keep:', { length: groups.length });
+  logger.info('Tasks to dismiss: \n', { length: toDismiss.length });
 
-  console.log('🚀 Starting cleanup...\n');
+  logger.info('🚀 Starting cleanup...\n');
 
   // Dismiss duplicates
   let dismissed = 0;
@@ -110,20 +112,20 @@ async function cleanupSemanticDuplicates() {
       .eq('id', task.id);
 
     if (error) {
-      console.error(`   ❌ Error: ${error.message}`);
+      logger.error('❌ Error:', { message: error.message });
     } else {
       dismissed++;
-      console.log(`   ✅ Dismissed: ${task.title.substring(0, 60)}...`);
+      logger.info('✅ Dismissed: ...', { substring(0, 60): task.title.substring(0, 60) });
     }
   }
 
-  console.log('\n' + '═'.repeat(80));
-  console.log(`\n🎉 Cleanup complete!`);
-  console.log(`   Dismissed: ${dismissed} tasks`);
-  console.log(`   Kept: ${groups.length} unique tasks\n`);
+  logger.info('\n' + '═'.repeat(80));
+  logger.info('\n🎉 Cleanup complete!');
+  logger.info('Dismissed:  tasks', { dismissed: dismissed });
+  logger.info('Kept:  unique tasks\n', { length: groups.length });
 }
 
 cleanupSemanticDuplicates().catch(error => {
-  console.error('\n❌ Error:', error);
+  logger.error('\n❌ Error:', { arg0: error });
   process.exit(1);
 });

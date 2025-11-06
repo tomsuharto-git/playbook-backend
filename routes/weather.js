@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const weatherService = require('../services/weather-service');
+const logger = require('../utils/logger').route('weather');
 
 /**
  * GET /api/weather
@@ -11,7 +12,7 @@ router.get('/', async (req, res) => {
     const weather = await weatherService.getCurrentWeather();
     res.json(weather);
   } catch (error) {
-    console.error('Weather route error:', error);
+    logger.error('Weather route error:', { arg0: error });
     res.status(500).json({
       error: 'Failed to fetch weather',
       fallback: true,
@@ -31,7 +32,7 @@ router.get('/forecast', async (req, res) => {
     const forecast = await weatherService.getForecast();
     res.json(forecast);
   } catch (error) {
-    console.error('Forecast route error:', error);
+    logger.error('Forecast route error:', { arg0: error });
     res.status(500).json({
       error: 'Failed to fetch forecast',
       forecast: []

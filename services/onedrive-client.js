@@ -1,4 +1,5 @@
 const axios = require('axios');
+const logger = require('../utils/logger').service('onedrive-client');
 
 class OneDriveClient {
   constructor() {
@@ -31,7 +32,7 @@ class OneDriveClient {
       const token = await this.getAccessToken();
       const url = `https://graph.microsoft.com/v1.0/me/drive/root:${filePath}:/content`;
       
-      console.log(`📥 Downloading: ${filePath}`);
+      logger.info('📥 Downloading:', { filePath: filePath });
       
       const response = await axios.get(url, {
         headers: {
@@ -43,10 +44,10 @@ class OneDriveClient {
       return response.data;
     } catch (error) {
       if (error.response?.status === 404) {
-        console.log(`File not found: ${filePath}`);
+        logger.info('File not found:', { filePath: filePath });
         return null;
       }
-      console.error(`Failed to download ${filePath}:`, error.message);
+      logger.error('Failed to download :', { filePath: filePath });
       throw error;
     }
   }
@@ -54,7 +55,7 @@ class OneDriveClient {
   async downloadFile(shareLink) {
     // Keep this for webhook compatibility (if you add it back later)
     try {
-      console.log(`📥 Downloading from share link`);
+      logger.info('📥 Downloading from share link');
       
       const response = await axios.get(shareLink, {
         responseType: 'json'
@@ -62,7 +63,7 @@ class OneDriveClient {
       
       return response.data;
     } catch (error) {
-      console.error('Failed to download:', error.message);
+      logger.error('Failed to download:', { arg0: error.message });
       throw error;
     }
   }

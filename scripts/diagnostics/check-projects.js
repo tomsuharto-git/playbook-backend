@@ -1,3 +1,5 @@
+const logger = require('../../utils/logger');
+
 const { supabase } = require('./db/supabase-client');
 
 async function checkProjects() {
@@ -7,16 +9,16 @@ async function checkProjects() {
     .order('name');
 
   if (error) {
-    console.error('Error:', error);
+    logger.error('Error:', { arg0: error });
     return;
   }
 
-  console.log(`\n📊 Found ${projects.length} projects\n`);
+  logger.debug('\n📊 Found  projects\n', { length: projects.length });
 
   // Check structure
   if (projects.length > 0) {
-    console.log('Project fields:', Object.keys(projects[0]).join(', '));
-    console.log();
+    logger.info('Project fields:');
+    logger.info();
   }
 
   // Show a few examples
@@ -24,11 +26,11 @@ async function checkProjects() {
   examples.forEach(name => {
     const project = projects.find(p => p.name === name);
     if (project) {
-      console.log(`${name}:`);
-      console.log(`  Context: ${project.context || 'NONE'}`);
-      console.log(`  Color: ${project.color}`);
-      console.log(`  Active: ${project.is_active}`);
-      console.log();
+      logger.info(':', { name: name });
+      logger.info('Context:', { context || 'NONE': project.context || 'NONE' });
+      logger.info('Color:', { color: project.color });
+      logger.info('Active:', { is_active: project.is_active });
+      logger.info();
     }
   });
 }

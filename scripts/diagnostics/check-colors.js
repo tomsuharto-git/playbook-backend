@@ -1,3 +1,5 @@
+const logger = require('../../utils/logger');
+
 const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config();
 
@@ -14,17 +16,17 @@ async function checkTaskColors() {
     .limit(20);
 
   if (error) {
-    console.error('Error:', error);
+    logger.error('Error:', { arg0: error });
     return;
   }
 
-  console.log('Sample task colors (from tasks table):\n');
+  logger.info('Sample task colors (from tasks table):\n');
   const uniqueProjects = {};
   data.forEach(t => {
     if (t.project_name && !uniqueProjects[t.project_name]) {
       uniqueProjects[t.project_name] = t.project_color;
       const padded = (t.project_name + ' '.repeat(25)).substring(0, 25);
-      console.log(padded + ' | Color: ' + t.project_color);
+      logger.info(padded + ' | Color: ' + t.project_color);
     }
   });
 }

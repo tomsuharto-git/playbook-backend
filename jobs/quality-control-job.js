@@ -7,6 +7,7 @@
 const cron = require('node-cron');
 const QualityControlService = require('../services/quality-control-service');
 const qcConfig = require('../config/qc-config');
+const logger = require('../utils/logger').job('quality-control-job');
 
 // Concurrency protection: Prevent overlapping executions
 let isRunning = false;
@@ -17,19 +18,19 @@ let isRunning = false;
 async function runQualityControl() {
   // Check if another job is already running
   if (isRunning) {
-    console.log('⏭️  QC already in progress, skipping this run');
+    logger.info('⏭️  QC already in progress, skipping this run');
     return { success: false, message: 'Already running' };
   }
 
   // Check if QC is enabled in config
   if (!qcConfig.schedule.enabled) {
-    console.log('⏸️  QC is disabled in config, skipping');
+    logger.info('⏸️  QC is disabled in config, skipping');
     return { success: false, message: 'QC disabled' };
   }
 
   isRunning = true;
-  console.log('\n🔍 Quality Control job starting...');
-  console.log('🔒 Acquired QC lock');
+  logger.debug('\n🔍 Quality Control job starting...');
+  logger.info('🔒 Acquired QC lock');
 
   const startTime = Date.now();
 
@@ -41,22 +42,22 @@ async function runQualityControl() {
     const duration = ((Date.now() - startTime) / 1000).toFixed(2);
 
     if (result.success) {
-      console.log(`✅ QC completed in ${duration}s`);
-      console.log(`   Issues detected: ${result.stats.issues_detected}`);
-      console.log(`   Issues fixed: ${result.stats.issues_fixed}`);
-      console.log(`   Alerts raised: ${result.stats.alerts_raised}`);
+      logger.info('✅ QC completed in s', { duration: duration });
+      logger.info('Issues detected:', { issues_detected: result.stats.issues_detected });
+      logger.info('Issues fixed:', { issues_fixed: result.stats.issues_fixed });
+      logger.info('Alerts raised:', { alerts_raised: result.stats.alerts_raised });
 
       // If issues were detected/fixed, log summary
       if (result.stats.issues_detected > 0) {
-        console.log('\n📊 QC Summary:');
+        logger.debug('\n📊 QC Summary:');
         if (result.stats.issues_fixed > 0) {
-          console.log(`   ✓ Auto-fixed ${result.stats.issues_fixed} issues`);
+          logger.info('✓ Auto-fixed  issues', { issues_fixed: result.stats.issues_fixed });
         }
         if (result.stats.alerts_raised > 0) {
-          console.log(`   ⚠️  ${result.stats.alerts_raised} items need manual review`);
+          logger.warn('⚠️   items need manual review', { alerts_raised: result.stats.alerts_raised });
         }
       } else {
-        console.log('   🎉 No issues found - data quality is excellent!');
+        logger.info('   🎉 No issues found - data quality is excellent!');
       }
 
       return {
@@ -66,7 +67,7 @@ async function runQualityControl() {
         duration: parseFloat(duration),
       };
     } else {
-      console.error('❌ QC run failed:', result.error);
+      logger.error('❌ QC run failed:', { arg0: result.error });
       return {
         success: false,
         error: result.error,
@@ -76,7 +77,7 @@ async function runQualityControl() {
 
   } catch (error) {
     const duration = ((Date.now() - startTime) / 1000).toFixed(2);
-    console.error(`❌ QC job error after ${duration}s:`, error);
+    logger.error('❌ QC job error after s:', { duration: duration });
     return {
       success: false,
       error: error.message,
@@ -85,7 +86,7 @@ async function runQualityControl() {
 
   } finally {
     isRunning = false;
-    console.log('🔓 Released QC lock\n');
+    logger.info('🔓 Released QC lock\n');
   }
 }
 
@@ -108,9 +109,9 @@ function scheduleQualityControl() {
     }
   );
 
-  console.log(`⏰ Quality Control scheduled: ${cronExpression} (${timezone})`);
-  console.log(`   Mode: ${qcConfig.schedule.readOnlyMode ? 'Read-Only (Detection)' : 'Auto-Fix Enabled'}`);
-  console.log(`   Phase: ${qcConfig.phases.currentPhase}`);
+  logger.info('⏰ Quality Control scheduled:  ()', { cronExpression: cronExpression, timezone: timezone });
+  logger.info('Mode:', { readOnlyMode ? 'Read-Only (Detection)' : 'Auto-Fix Enabled': qcConfig.schedule.readOnlyMode ? 'Read-Only (Detection)' : 'Auto-Fix Enabled' });
+  logger.info('Phase:', { currentPhase: qcConfig.phases.currentPhase });
 
   return schedule;
 }

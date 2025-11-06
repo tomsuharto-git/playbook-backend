@@ -1,5 +1,6 @@
 const cron = require('node-cron');
 const axios = require('axios');
+const logger = require('../utils/logger').job('cleanup-gdrive');
 
 // Google Drive folder IDs
 const CALENDAR_FOLDER_ID = '15CJiwytPs1A0rAIectouqr8xExIYMiMf';
@@ -19,7 +20,7 @@ async function cleanupFolder(folderId, folderName) {
     const listResponse = await axios.get(listUrl);
     const files = listResponse.data.files || [];
     
-    console.log(`🗑️  Found ${files.length} old files in ${folderName}`);
+    logger.info('🗑️  Found  old files in', { length: files.length, folderName: folderName });
     
     if (files.length === 0) return;
     
@@ -28,26 +29,26 @@ async function cleanupFolder(folderId, folderName) {
       try {
         const deleteUrl = `https://www.googleapis.com/drive/v3/files/${file.id}?key=${process.env.GOOGLE_API_KEY}`;
         await axios.delete(deleteUrl);
-        console.log(`✅ Deleted: ${file.name} (modified: ${file.modifiedTime})`);
+        logger.info('✅ Deleted:  (modified: )', { name: file.name, modifiedTime: file.modifiedTime });
       } catch (error) {
-        console.error(`❌ Failed to delete ${file.name}:`, error.message);
+        logger.error('❌ Failed to delete :', { name: file.name });
       }
     }
   } catch (error) {
-    console.error(`❌ Failed to cleanup ${folderName}:`, error.message);
+    logger.error('❌ Failed to cleanup :', { folderName: folderName });
   }
 }
 
 async function cleanupOldFiles() {
-  console.log('🧹 Starting Google Drive cleanup...');
+  logger.info('🧹 Starting Google Drive cleanup...');
   
   try {
     await cleanupFolder(CALENDAR_FOLDER_ID, 'Calendar');
     await cleanupFolder(EMAILS_FOLDER_ID, 'Emails');
     
-    console.log('🧹 Cleanup complete');
+    logger.info('🧹 Cleanup complete');
   } catch (error) {
-    console.error('❌ Cleanup failed:', error);
+    logger.error('❌ Cleanup failed:', { arg0: error });
   }
 }
 
@@ -57,7 +58,7 @@ function startCleanupJob() {
     timezone: 'America/New_York'
   });
   
-  console.log('🧹 Google Drive cleanup scheduled: Daily at midnight ET');
+  logger.info('🧹 Google Drive cleanup scheduled: Daily at midnight ET');
 }
 
 module.exports = { startCleanupJob, cleanupOldFiles };

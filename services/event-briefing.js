@@ -2,6 +2,7 @@ const Anthropic = require('@anthropic-ai/sdk');
 const { exec } = require('child_process');
 const { promisify } = require('util');
 const path = require('path');
+const logger = require('../utils/logger').service('event-briefing');
 
 const execAsync = promisify(exec);
 
@@ -25,7 +26,7 @@ async function searchVaultContext(event) {
 
   if (keywords.length === 0) return '';
 
-  console.log(`      Searching vault for: ${keywords.join(', ')}`);
+  logger.info('Searching vault for:', { join(', '): keywords.join(', ') });
 
   const contextSnippets = [];
 
@@ -47,7 +48,7 @@ async function searchVaultContext(event) {
 
   if (contextSnippets.length > 0) {
     const unique = [...new Set(contextSnippets)].slice(0, 5);
-    console.log(`      ✓ Found ${unique.length} vault snippets`);
+    logger.info('✓ Found  vault snippets', { length: unique.length });
     return unique.join('\n');
   }
 
@@ -73,7 +74,7 @@ function getAttendeesList(event) {
 async function generateEventBriefing(event, vaultContext, projectContext) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
-    console.error('      ⚠️ ANTHROPIC_API_KEY not set');
+    logger.error('      ⚠️ ANTHROPIC_API_KEY not set');
     return null;
   }
 
@@ -286,18 +287,18 @@ Return JSON:
       result = JSON.parse(responseText);
     } catch (parseError) {
       // Fallback: treat entire response as briefing
-      console.log(`      ⚠️ Failed to parse JSON, using raw text`);
+      logger.warn('⚠️ Failed to parse JSON, using raw text');
       result = {
         briefing: responseText,
         relevant_task_ids: []
       };
     }
 
-    console.log(`      ✓ Generated briefing (${result.briefing.length} chars, ${result.relevant_task_ids.length} relevant tasks)`);
+    logger.info('✓ Generated briefing ( chars,  relevant tasks)', { length: result.briefing.length, length: result.relevant_task_ids.length });
 
     return result;
   } catch (error) {
-    console.error(`      ✗ Error generating briefing:`, error.message);
+    logger.error('✗ Error generating briefing:');
     return null;
   }
 }
@@ -307,7 +308,7 @@ Return JSON:
  * Events can optionally have project_context already attached
  */
 async function generateEventBriefings(events) {
-  console.log(`\n🤖 Generating AI briefings for ${events.length} events (sequential processing to avoid rate limits)...`);
+  logger.info('\n🤖 Generating AI briefings for  events (sequential processing to avoid rate limits)...', { length: events.length });
 
   const DELAY_BETWEEN_EVENTS = 500; // 500ms delay between each event
   const enrichedEvents = [];
@@ -316,7 +317,7 @@ async function generateEventBriefings(events) {
   for (let i = 0; i < events.length; i++) {
     const event = events[i];
     const title = event.summary || 'No Title';
-    console.log(`\n   [${i + 1}/${events.length}] Processing: ${title}`);
+    logger.info('\n   [/] Processing:', { i + 1: i + 1, length: events.length, title: title });
 
     try {
       // Search vault for context
@@ -366,7 +367,7 @@ async function generateEventBriefings(events) {
         await new Promise(resolve => setTimeout(resolve, DELAY_BETWEEN_EVENTS));
       }
     } catch (error) {
-      console.error(`      ✗ Error processing event: ${error.message}`);
+      logger.error('✗ Error processing event:', { message: error.message });
       enrichedEvents.push({
         ...event,
         ai_briefing: null,
@@ -375,7 +376,7 @@ async function generateEventBriefings(events) {
     }
   }
 
-  console.log(`\n   ✅ Generated ${enrichedEvents.filter(e => e.ai_briefing).length} briefings\n`);
+  logger.info('\n   ✅ Generated  briefings\n', { length: enrichedEvents.filter(e => e.ai_briefing).length });
 
   return enrichedEvents;
 }

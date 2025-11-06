@@ -1,3 +1,5 @@
+const logger = require('../../utils/logger');
+
 /**
  * Cleanup script to dismiss false-positive tasks from Toronto Tempo Get Smart strategic documents
  * These 210 tasks were created from strategic analysis documents (deployment guides, briefs, etc.)
@@ -7,7 +9,7 @@
 const { supabase } = require('./db/supabase-client');
 
 async function cleanupTorontoTempoTasks() {
-  console.log('\n🧹 Cleaning up Toronto Tempo Get Smart false-positive tasks...\n');
+  logger.info('\n🧹 Cleaning up Toronto Tempo Get Smart false-positive tasks...\n');
 
   // Fetch all pending tasks from Toronto Tempo folder created today
   const today = new Date();
@@ -22,26 +24,26 @@ async function cleanupTorontoTempoTasks() {
     .gte('created_at', today.toISOString());
 
   if (error) {
-    console.error('❌ Error fetching tasks:', error);
+    logger.error('❌ Error fetching tasks:', { arg0: error });
     return;
   }
 
-  console.log(`📊 Found ${tasks.length} pending tasks from Toronto Tempo folder created today\n`);
+  logger.debug('📊 Found  pending tasks from Toronto Tempo folder created today\n', { length: tasks.length });
 
   if (tasks.length === 0) {
-    console.log('✅ No tasks to clean up');
+    logger.info('✅ No tasks to clean up');
     return;
   }
 
   // Show sample tasks
-  console.log('📋 Sample tasks (first 15):');
-  console.log('─'.repeat(80));
+  logger.info('📋 Sample tasks (first 15):');
+  logger.info('─'.repeat(80));
   tasks.slice(0, 15).forEach((task, i) => {
-    console.log(`${i + 1}. "${task.title}"`);
+    logger.info('. ""', { i + 1: i + 1, title: task.title });
     const fileName = task.detected_from?.split('/').pop() || 'unknown';
-    console.log(`   From: ${fileName}`);
-    console.log(`   Confidence: ${task.confidence ? (task.confidence * 100).toFixed(0) + '%' : 'N/A'}`);
-    console.log();
+    logger.info('From:', { fileName: fileName });
+    logger.info('Confidence:', { toFixed(0) + '%' : 'N/A': task.confidence ? (task.confidence * 100).toFixed(0) + '%' : 'N/A' });
+    logger.info();
   });
 
   // Group by source file
@@ -54,14 +56,14 @@ async function cleanupTorontoTempoTasks() {
     tasksByFile[fileName].push(task);
   });
 
-  console.log('📁 Tasks by source file:');
-  console.log('─'.repeat(80));
+  logger.info('📁 Tasks by source file:');
+  logger.info('─'.repeat(80));
   Object.entries(tasksByFile)
     .sort((a, b) => b[1].length - a[1].length)
     .forEach(([fileName, fileTasks]) => {
-      console.log(`  ${fileTasks.length.toString().padStart(3)} tasks | ${fileName}`);
+      logger.info('tasks |', { padStart(3): fileTasks.length.toString().padStart(3), fileName: fileName });
     });
-  console.log();
+  logger.info();
 
   // Dismiss all Toronto Tempo tasks
   const taskIds = tasks.map(t => t.id);
@@ -74,24 +76,26 @@ async function cleanupTorontoTempoTasks() {
     .in('id', taskIds);
 
   if (updateError) {
-    console.error('❌ Error dismissing tasks:', updateError);
+    logger.error('❌ Error dismissing tasks:', { arg0: updateError });
     return;
   }
 
-  console.log('═'.repeat(80));
-  console.log(`✅ Successfully dismissed ${taskIds.length} false-positive tasks`);
-  console.log();
-  console.log('📝 Summary:');
-  console.log(`   - These tasks were extracted from Toronto Tempo Get Smart strategic documents`);
-  console.log(`   - They were deployment guides, strategic briefs, and technical documentation`);
-  console.log(`   - These contain instructional content, not personal action items for Tom`);
-  console.log(`   - Vault watcher already has /Get Smart/ folder exclusion (line 132-135)`);
-  console.log(`   - Future Get Smart edits will NOT create tasks via auto-detection`);
-  console.log();
-  console.log('💡 Next step:');
-  console.log(`   - Review how these tasks were created (manual API calls)`);
-  console.log(`   - Ensure no workflows are automatically creating tasks from strategic docs`);
-  console.log();
+  logger.info('═'.repeat(80));
+  logger.info('✅ Successfully dismissed  false-positive tasks', { length: taskIds.length });
+  logger.info();
+  logger.debug('📝 Summary:');
+  logger.info('- These tasks were extracted from Toronto Tempo Get Smart strategic documents');
+  logger.info('- They were deployment guides, strategic briefs, and technical documentation');
+  logger.info('- These contain instructional content, not personal action items for Tom');
+  logger.info('- Vault watcher already has /Get Smart/ folder exclusion (line 132-135)');
+  logger.info('- Future Get Smart edits will NOT create tasks via auto-detection');
+  logger.info();
+  logger.info('💡 Next step:');
+  logger.info('- Review how these tasks were created (manual API calls)');
+  logger.info('- Ensure no workflows are automatically creating tasks from strategic docs');
+  logger.info();
 }
 
-cleanupTorontoTempoTasks().catch(console.error);
+cleanupTorontoTempoTasks().catch(error => {
+  logger.error('❌ Script failed', { error: error.message, stack: error.stack });
+});

@@ -1,3 +1,5 @@
+const logger = require('../../utils/logger');
+
 const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config();
 
@@ -7,7 +9,7 @@ const supabase = createClient(
 );
 
 async function checkMeetingDetails() {
-  console.log('\n📋 Checking meeting note details...\n');
+  logger.info('\n📋 Checking meeting note details...\n');
 
   // Get ITA Airways project
   const { data: project } = await supabase
@@ -24,12 +26,12 @@ async function checkMeetingDetails() {
     .not('date', 'is', null)
     .order('date', { ascending: false });
 
-  console.log('ITA Airways Meeting Notes:\n');
+  logger.info('ITA Airways Meeting Notes:\n');
   notes?.forEach(note => {
-    console.log(`Title: ${note.title}`);
-    console.log(`Date: ${note.date}`);
-    console.log(`Key Points:`, note.key_points);
-    console.log(`---\n`);
+    logger.info('Title:', { title: note.title });
+    logger.info('Date:', { date: note.date });
+    logger.info('Key Points:');
+    logger.info('---\n');
   });
 }
 

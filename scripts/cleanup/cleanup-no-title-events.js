@@ -1,3 +1,5 @@
+const logger = require('../../utils/logger');
+
 const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config();
 
@@ -7,7 +9,7 @@ const supabase = createClient(
 );
 
 async function cleanupNoTitleEvents() {
-  console.log('\n🧹 Cleaning up "No Title" events from daily briefs...\n');
+  logger.info('\n🧹 Cleaning up "No Title" events from daily briefs...\n');
 
   // Fetch all daily_briefs records
   const { data: briefs, error: fetchError } = await supabase
@@ -15,11 +17,11 @@ async function cleanupNoTitleEvents() {
     .select('date, calendar_events');
 
   if (fetchError) {
-    console.error('❌ Error fetching briefs:', fetchError);
+    logger.error('❌ Error fetching briefs:', { arg0: fetchError });
     return;
   }
 
-  console.log(`Found ${briefs?.length || 0} daily brief records`);
+  logger.info('Found  daily brief records', { length || 0: briefs?.length || 0 });
 
   let totalNoTitle = 0;
   let updatedDates = [];
@@ -44,18 +46,18 @@ async function cleanupNoTitleEvents() {
         .eq('date', brief.date);
 
       if (updateError) {
-        console.error(`❌ Error updating ${brief.date}:`, updateError);
+        logger.error('❌ Error updating :', { date: brief.date });
       } else {
-        console.log(`✅ ${brief.date}: Removed ${removedCount} "No Title" event(s)`);
+        logger.info('✅ : Removed  "No Title" event(s)', { date: brief.date, removedCount: removedCount });
         totalNoTitle += removedCount;
         updatedDates.push(brief.date);
       }
     }
   }
 
-  console.log(`\n✨ Cleanup complete!`);
-  console.log(`   Total "No Title" events removed: ${totalNoTitle}`);
-  console.log(`   Dates updated: ${updatedDates.length}`);
+  logger.info('\n✨ Cleanup complete!');
+  logger.info('Total "No Title" events removed:', { totalNoTitle: totalNoTitle });
+  logger.info('Dates updated:', { length: updatedDates.length });
 }
 
 cleanupNoTitleEvents();
