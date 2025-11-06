@@ -116,9 +116,9 @@ router.get('/brief', async (req, res) => {
           continue;
         }
 
-        // Try to load events from Phase 2 events table first (event_ids)
+        // Phase 2: Load events from normalized events table using event_ids
         if (briefData?.event_ids && briefData.event_ids.length > 0) {
-          console.log(`    DEBUG: Fetching ${briefData.event_ids.length} events by ID...`);
+          console.log(`    Fetching ${briefData.event_ids.length} events from events table...`);
 
           const { data: events, error: eventsError } = await supabase
             .from('events')
@@ -133,13 +133,10 @@ router.get('/brief', async (req, res) => {
             .in('id', briefData.event_ids)
             .order('start_time', { ascending: true});
 
-          console.log(`    DEBUG: Events query result:`, {
-            error: eventsError?.message || null,
-            eventsFound: events?.length || 0,
-            eventIds: briefData.event_ids
-          });
-
-          if (!eventsError && events && events.length > 0) {
+          if (eventsError) {
+            console.error(`    ⚠️  Error loading events:`, eventsError.message);
+            eventsByDate[dateStr] = [];
+          } else if (events && events.length > 0) {
             // Map Phase 2 events table structure to expected frontend format
             eventsByDate[dateStr] = events.map(e => {
               // Convert timestamps back to start/end object format for frontend compatibility
@@ -173,20 +170,16 @@ router.get('/brief', async (req, res) => {
                 enriched_attendees: e.attendees || []
               };
             });
-            console.log(`    ✅ Loaded ${events.length} events from Phase 2 events table`);
+            console.log(`    ✅ Loaded ${events.length} events from events table`);
           } else {
-            console.error(`    ⚠️  Error loading events from Phase 2 table:`, eventsError?.message);
-            // Fallback to JSONB if persistent table fails
-            eventsByDate[dateStr] = briefData?.calendar_events || [];
+            // No events found for this briefing
+            eventsByDate[dateStr] = [];
+            console.log(`    ℹ️  No events found for event_ids:`, briefData.event_ids);
           }
         } else {
-          // Fallback: Load from old JSONB structure (transition period)
-          if (briefData?.calendar_events) {
-            eventsByDate[dateStr] = briefData.calendar_events;
-            console.log(`    ✅ Loaded ${briefData.calendar_events.length} events from JSONB (fallback)`);
-          } else {
-            eventsByDate[dateStr] = [];
-          }
+          // No event IDs in briefing (briefing may have been generated before events were created)
+          eventsByDate[dateStr] = [];
+          console.log(`    ℹ️  No event_ids in briefing for ${dateStr}`);
         }
       } catch (error) {
         console.error(`    ⚠️  Failed to fetch briefings:`, error.message);
