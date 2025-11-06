@@ -385,13 +385,13 @@ async function generateBriefings() {
           console.log(`     ✓ Deduplicated: ${existingBrief.event_ids.length} existing + ${eventIds.length} new = ${mergedEventIds.length} total`);
         }
 
-        // Update daily_briefs with merged event references
+        // Phase 2: Update daily_briefs with event references only
         await supabase
           .from('daily_briefs')
           .upsert({
             date: dateStr,
-            event_ids: mergedEventIds,
-            calendar_events: validEvents // Keep JSONB for rollback during transition
+            event_ids: mergedEventIds
+            // JSONB calendar_events removed - using normalized events table
           }, {
             onConflict: 'date'
           });

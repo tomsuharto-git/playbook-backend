@@ -356,62 +356,15 @@ async function markEmailsAsProcessed(emailAnalyses) {
 }
 
 async function processCalendarData(events, date) {
-  console.log('\n⚠️  WARNING: processCalendarData() should NOT be used for briefing generation!');
-  console.log('   This function is deprecated. Use generate-briefings.js instead.');
-  console.log('   Continuing anyway for backwards compatibility...\n');
+  console.log('\n⚠️  WARNING: processCalendarData() is DEPRECATED!');
+  console.log('   This function should NOT be used. Use generate-briefings.js instead.');
+  console.log('   Phase 2 architecture uses normalized events table, not JSONB storage.');
+  console.log('   Skipping to prevent JSONB pollution...\n');
 
-  const rawEvents = events.value || [];
-  console.log(`Processing ${rawEvents.length} calendar events for ${date}`);
-
-  // Step 1: Normalize all Outlook events to Google Calendar format
-  const normalizedEvents = rawEvents
-    .map(e => normalizeOutlookEvent(e))
-    .filter(e => e !== null); // Remove null values from rejected events
-
-  const rejectedCount = rawEvents.length - normalizedEvents.length;
-  if (rejectedCount > 0) {
-    console.log(`  ⚠️  Rejected ${rejectedCount} invalid event(s) during normalization`);
-  }
-  console.log(`  ✅ Normalized ${normalizedEvents.length} valid events`);
-
-  // Step 2: Filter to only include events occurring on target date
-  const filteredEvents = filterEventsByDate(normalizedEvents, date);
-  console.log(`  ✅ Filtered to ${filteredEvents.length} events for ${date}`);
-
-  // Step 3: Final validation before database write
-  const validEvents = filteredEvents.filter(event => {
-    const hasTitle = event.summary && event.summary.trim() !== '';
-    const hasTime = event.start?.dateTime || event.start?.date;
-
-    if (!hasTitle || !hasTime) {
-      console.log(`  🚫 Blocking invalid event: "${event.summary || 'NO TITLE'}" (hasTitle: ${hasTitle}, hasTime: ${hasTime})`);
-      return false;
-    }
-
-    return true;
-  });
-
-  const blockedCount = filteredEvents.length - validEvents.length;
-  if (blockedCount > 0) {
-    console.log(`  🛡️  Blocked ${blockedCount} invalid event(s) before database save`);
-  }
-
-  // Store in daily_briefs table
-  const { error } = await supabase
-    .from('daily_briefs')
-    .upsert({
-      date: date,
-      calendar_events: validEvents,
-      generated_at: new Date().toISOString()
-    }, {
-      onConflict: 'date'
-    });
-
-  if (error) {
-    throw new Error(`Supabase error: ${error.message}`);
-  }
-
-  console.log(`✅ Stored ${validEvents.length} valid events in database`);
+  // Return early - this function is no longer needed in Phase 2
+  // All calendar event processing is handled by generate-briefings.js
+  // which properly stores events in the normalized events table
+  return;
 }
 
 async function processEmailData(emails, date) {

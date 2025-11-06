@@ -131,36 +131,86 @@ class PodcastGenerator {
 
   /**
    * Get today's brief (calendar events from BOTH Google and Outlook)
+   * Phase 2: Fetches from normalized events table via event_ids
    */
   async getTodaysBrief(date) {
-    // Fetch Outlook events from daily_briefs table
-    const { data } = await supabase
+    // Fetch briefing metadata and event IDs
+    const { data: briefData } = await supabase
       .from('daily_briefs')
-      .select('calendar_events, weather, ai_insights, priorities')
+      .select('event_ids, weather, ai_insights, priorities')
       .eq('date', date)
       .single();
 
-    const outlookEvents = data?.calendar_events || [];
+    let calendarEvents = [];
 
-    // Fetch Google Calendar events
+    // Phase 2: Load events from normalized events table using event_ids
+    if (briefData?.event_ids && briefData.event_ids.length > 0) {
+      console.log(`   📊 Fetching ${briefData.event_ids.length} events from events table...`);
+
+      const { data: events, error: eventsError } = await supabase
+        .from('events')
+        .select(`
+          *,
+          projects (
+            name,
+            project_color,
+            context
+          )
+        `)
+        .in('id', briefData.event_ids)
+        .order('start_time', { ascending: true });
+
+      if (eventsError) {
+        console.error(`   ⚠️  Error loading events:`, eventsError.message);
+      } else if (events && events.length > 0) {
+        // Map Phase 2 events table structure to expected podcast format
+        calendarEvents = events.map(e => {
+          const startTime = new Date(e.start_time);
+          const endTime = new Date(e.end_time);
+          const isAllDay = startTime.getUTCHours() === 0 &&
+                           startTime.getUTCMinutes() === 0 &&
+                           startTime.getUTCSeconds() === 0;
+
+          return {
+            id: e.calendar_id,
+            summary: e.title || e.summary || e.subject || 'No Title',
+            subject: e.title || e.summary || e.subject || 'No Title',
+            start: isAllDay
+              ? { date: startTime.toISOString().split('T')[0] }
+              : { dateTime: e.start_time },
+            end: isAllDay
+              ? { date: endTime.toISOString().split('T')[0] }
+              : { dateTime: e.end_time },
+            body: e.description,
+            location: e.location,
+            requiredAttendees: e.attendees?.filter(a => !a.optional).map(a => a.email).join('; ') || '',
+            optionalAttendees: e.attendees?.filter(a => a.optional).map(a => a.email).join('; ') || '',
+            attendees: e.attendees || []
+          };
+        });
+        console.log(`   ✅ Loaded ${events.length} events from events table`);
+      }
+    }
+
+    // Fetch Google Calendar events (still direct from Google API)
     let googleEvents = [];
     try {
       const targetDate = new Date(date + 'T12:00:00');
       googleEvents = await fetchTodaysEvents(targetDate);
       console.log(`   📧 Google Calendar: ${googleEvents.length} events`);
-      console.log(`   📧 Outlook Calendar: ${outlookEvents.length} events`);
+      console.log(`   📧 Database events: ${calendarEvents.length} events`);
     } catch (error) {
       console.error(`   ⚠️  Google Calendar fetch failed:`, error.message);
     }
 
     // Combine both calendars
-    const allEvents = [...googleEvents, ...outlookEvents];
+    const allEvents = [...googleEvents, ...calendarEvents];
 
     return {
       calendar_events: allEvents,
-      weather: data?.weather || null,
-      ai_insights: data?.ai_insights || null,
-      priorities: data?.priorities || []
+      weather: briefData?.weather || null,
+      ai_insights: briefData?.ai_insights || null,
+      priorities: briefData?.priorities || []
     };
   }
 
