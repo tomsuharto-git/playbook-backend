@@ -12,6 +12,7 @@ const { supabase } = require('../db/supabase-client');
 const { detectProject } = require('./project-detector');
 const Anthropic = require('@anthropic-ai/sdk');
 const logger = require('../utils/logger').service('central-processor');
+const duplicateDetector = require('./duplicate-detector-service');
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY
@@ -491,41 +492,19 @@ IMPORTANT: Return ONLY valid JSON with no additional text, explanation, or comme
   }
 
   /**
-   * Check if entity is a duplicate
+   * Check if entity is a duplicate using unified duplicate detector
    */
   async isDuplicate(entity) {
-    if (entity.type === 'task') {
-      // Simple duplicate check for tasks
-      const { data: existing } = await supabase
-        .from('tasks')
-        .select('id, title')
-        .eq('project_id', entity.project_id)
-        .ilike('title', `%${entity.title.substring(0, 20)}%`)
-        .eq('status', 'pending');
-
-      if (existing && existing.length > 0) {
-        // Check for similarity
-        for (const task of existing) {
-          if (this.calculateSimilarity(task.title, entity.title) > 0.8) {
-            return true;
-          }
-        }
+    const result = await duplicateDetector.checkDuplicate(
+      entity,
+      entity.type,
+      {
+        projectId: entity.project_id,
+        timeWindow: 7 // Look back 7 days
       }
-      return false;
-    }
+    );
 
-    if (entity.type === 'event' && entity.calendar_id) {
-      const { data: existing } = await supabase
-        .from('events')
-        .select('id')
-        .eq('calendar_id', entity.calendar_id)
-        .eq('calendar_source', entity.calendar_source)
-        .single();
-
-      return !!existing;
-    }
-
-    return false;
+    return result.isDuplicate;
   }
 
   /**
@@ -616,47 +595,6 @@ IMPORTANT: Return ONLY valid JSON with no additional text, explanation, or comme
     }
 
     return new Date();
-  }
-
-  /**
-   * Calculate similarity between two strings
-   */
-  calculateSimilarity(str1, str2) {
-    if (!str1 || !str2) return 0;
-
-    // Convert to lowercase for comparison
-    const s1 = str1.toLowerCase();
-    const s2 = str2.toLowerCase();
-
-    // Exact match
-    if (s1 === s2) return 1;
-
-    // Calculate Levenshtein distance
-    const len1 = s1.length;
-    const len2 = s2.length;
-    const dp = Array(len1 + 1).fill(null).map(() => Array(len2 + 1).fill(0));
-
-    for (let i = 0; i <= len1; i++) dp[i][0] = i;
-    for (let j = 0; j <= len2; j++) dp[0][j] = j;
-
-    for (let i = 1; i <= len1; i++) {
-      for (let j = 1; j <= len2; j++) {
-        if (s1[i - 1] === s2[j - 1]) {
-          dp[i][j] = dp[i - 1][j - 1];
-        } else {
-          dp[i][j] = Math.min(
-            dp[i - 1][j] + 1,    // deletion
-            dp[i][j - 1] + 1,    // insertion
-            dp[i - 1][j - 1] + 1 // substitution
-          );
-        }
-      }
-    }
-
-    const distance = dp[len1][len2];
-    const maxLen = Math.max(len1, len2);
-
-    return maxLen === 0 ? 1 : 1 - (distance / maxLen);
   }
 }
 
