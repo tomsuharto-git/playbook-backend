@@ -171,6 +171,11 @@ Key tables:
 
 **Auto-deploy:** Pushes to GitHub automatically deploy to Railway.
 
+**Quick verification after deployment:**
+```bash
+npm run verify:deployment
+```
+
 **Manual operations:**
 ```bash
 # View logs
@@ -184,6 +189,8 @@ railway status
 ```
 
 **Important:** If Railway serves stale code after a push, manually click "Redeploy" in the Railway dashboard to clear build cache.
+
+For comprehensive deployment documentation, troubleshooting, and best practices, see **[DEPLOYMENT.md](./DEPLOYMENT.md)**.
 
 ## Development
 
@@ -210,13 +217,15 @@ node scripts/cleanup/cleanup-duplicates.js
 - Central processor running
 - Email scanning active
 
-**🚧 In Progress (Stabilization Plan):**
-- Removing JSONB fallback logic from routes
-- Consolidating duplicate detection
-- Implementing Winston logging
-- Code quality improvements
+**✅ Stabilization Complete (Phases 1-5):**
+- Phase 1: Foundation - Code organization and documentation
+- Phase 2: Data Consistency - Normalized database tables
+- Phase 3: Winston Logging - Centralized structured logging
+- Phase 4: Duplicate Detection - Unified similarity matching
+- Phase 5: Railway & Deployment - Complete deployment documentation
 
 See `docs/STABILIZATION_PLAN.md` for detailed refactoring roadmap.
+See `DEPLOYMENT.md` for comprehensive deployment guide.
 
 ## Troubleshooting
 

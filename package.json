@@ -8,7 +8,8 @@
     "start": "node server-railway.js",
     "db:setup": "node db/setup.js",
     "test": "jest",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "verify:deployment": "node scripts/deployment/verify-deployment.js"
   },
   "keywords": [
     "ai",
@@ -26,6 +27,7 @@
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
+    "fast-levenshtein": "^3.0.0",
     "googleapis": "^128.0.0",
     "helmet": "^8.1.0",
     "node-cron": "^4.2.1",
