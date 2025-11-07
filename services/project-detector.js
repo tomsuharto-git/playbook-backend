@@ -226,14 +226,16 @@ async function detectProject(event) {
 
     // Step 1: Extract keywords
     const keywords = extractKeywords(event.summary, event.description);
-    logger.info('Keywords:', { join(', '): keywords.join(', ') });
+    const keywordsList = keywords.join(', ');
+    logger.info('Keywords:', { keywords: keywordsList });
 
     // Step 2: Keyword matching
     const projectMatches = await matchProjectsByKeywords(keywords);
 
     if (projectMatches.length > 0) {
       logger.info('Keyword matches:', { length: projectMatches.length });
-      logger.info('Top match:  (confidence: )', { name: projectMatches[0].name, toFixed(2): projectMatches[0].confidence.toFixed(2) });
+      const topMatchConfidence = projectMatches[0].confidence.toFixed(2);
+      logger.info('Top match:', { name: projectMatches[0].name, confidence: topMatchConfidence });
 
       // If high confidence match, return it immediately
       if (projectMatches[0].confidence >= 0.8) {
@@ -250,7 +252,8 @@ async function detectProject(event) {
     const aiMatch = await classifyEventWithAI(event, projectMatches);
 
     if (aiMatch && aiMatch.confidence >= 0.7) {
-      logger.info('✅ AI match:  (confidence: )', { name: aiMatch.name, toFixed(2): aiMatch.confidence.toFixed(2) });
+      const aiMatchConfidence = aiMatch.confidence.toFixed(2);
+      logger.info('✅ AI match:', { name: aiMatch.name, confidence: aiMatchConfidence });
       return aiMatch;
     }
 
