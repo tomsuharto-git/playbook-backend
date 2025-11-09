@@ -110,7 +110,8 @@ function scheduleQualityControl() {
   );
 
   logger.info('⏰ Quality Control scheduled:  ()', { cronExpression: cronExpression, timezone: timezone });
-  logger.info('Mode:', { readOnlyMode ? 'Read-Only (Detection)' : 'Auto-Fix Enabled': qcConfig.schedule.readOnlyMode ? 'Read-Only (Detection)' : 'Auto-Fix Enabled' });
+  const mode = qcConfig.schedule.readOnlyMode ? 'Read-Only (Detection)' : 'Auto-Fix Enabled';
+  logger.info('Mode:', { mode: mode });
   logger.info('Phase:', { currentPhase: qcConfig.phases.currentPhase });
 
   return schedule;
