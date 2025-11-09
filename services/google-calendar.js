@@ -61,7 +61,9 @@ async function fetchCalendarEvents(calendar, calendarId, startTime, endTime) {
       return true;
     });
 
-    logger.info('✅ Fetched  events from  ( filtered out)', { length: validEvents.length, CALENDARS[calendarId]: CALENDARS[calendarId], length: events.length - validEvents.length });
+    const calendarName = CALENDARS[calendarId];
+    const filteredOutCount = events.length - validEvents.length;
+    logger.info('✅ Fetched  events from  ( filtered out)', { validEventsCount: validEvents.length, calendar: calendarName, filteredOutCount: filteredOutCount });
 
     // Debug: Log attendee counts
     const eventsWithAttendees = validEvents.filter(e => e.attendees && e.attendees.length > 0);
