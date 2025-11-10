@@ -279,7 +279,8 @@ async function enrichCalendarEvents(events) {
 
   for (const event of events) {
     if (event.attendees && event.attendees.length > 0) {
-      logger.info('\n📅 Event:  ( attendees)', { summary || 'No title': event.summary || 'No title', length: event.attendees.length });
+      const eventSummary = event.summary || 'No title';
+      logger.info('\n📅 Event:  ( attendees)', { summary: eventSummary, length: event.attendees.length });
       const enrichedAttendees = await enrichAttendees(event.attendees);
 
       enrichedEvents.push({
