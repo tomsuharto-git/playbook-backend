@@ -9,11 +9,12 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const cron = require('node-cron');
-const logger = require('./utils/logger');
 
 // Import Phase 2 services (these don't require vault)
 const centralProcessor = require('./services/central-processor');
 const unifiedEmailHandler = require('./services/unified-email-handler');
+
+// Email scanners are not available in this minimal build
 
 // Initialize Express app
 const app = express();
@@ -33,21 +34,22 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '10mb' }));
 
-logger.info('✅ CORS configured', { frontendUrl });
+console.log(`✅ CORS configured for: ${frontendUrl}`);
 
 // ============================================================
 // STARTUP
 // ============================================================
-logger.info('='.repeat(60));
-logger.info('🚀 RAILWAY PRODUCTION SERVER - PHASE 2');
-logger.info('='.repeat(60));
-logger.info('Architecture: Three-Entity Model', {
-  centralProcessor: '✓',
-  unifiedEmailHandler: '✓',
-  entities: 'Tasks, Events, Narratives',
-  environment: process.env.NODE_ENV || 'production',
-  vaultWatcher: 'No Vault Watcher (cloud environment)'
-});
+console.log('\n' + '='.repeat(60));
+console.log('🚀 RAILWAY PRODUCTION SERVER - PHASE 2');
+console.log('='.repeat(60));
+console.log(`
+Architecture: Three-Entity Model
+- Central Processor: ✓
+- Unified Email Handler: ✓
+- Entities: Tasks, Events, Narratives
+- Environment: ${process.env.NODE_ENV || 'production'}
+- No Vault Watcher (cloud environment)
+`);
 
 // ============================================================
 // API ROUTES
@@ -58,49 +60,57 @@ logger.info('Architecture: Three-Entity Model', {
 try {
   const calendarRoutes = require('./routes/calendar');
   app.use('/api/calendar', calendarRoutes);
-  logger.info('✅ Calendar routes loaded at /api/calendar');
+  console.log('✅ Calendar routes loaded at /api/calendar');
 } catch (e) {
-  logger.warn('⚠️  Calendar routes not available');
+  console.log('⚠️  Calendar routes not available');
 }
 
 try {
   const projectsRoutes = require('./routes/projects');
   app.use('/api/projects', projectsRoutes);
-  logger.info('✅ Projects routes loaded');
+  console.log('✅ Projects routes loaded');
 } catch (e) {
-  logger.warn('⚠️  Projects routes not available');
+  console.log('⚠️  Projects routes not available');
 }
 
 try {
   const eventsRoutes = require('./routes/events');
   app.use('/api/events', eventsRoutes);
-  logger.info('✅ Events routes loaded');
+  console.log('✅ Events routes loaded');
 } catch (e) {
-  logger.warn('⚠️  Events routes not available');
+  console.log('⚠️  Events routes not available');
 }
 
 try {
   const podcastRoutes = require('./routes/podcast');
   app.use('/api/podcast', podcastRoutes);
-  logger.info('✅ Podcast routes loaded');
+  console.log('✅ Podcast routes loaded');
 } catch (e) {
-  logger.warn('⚠️  Podcast routes not available');
+  console.log('⚠️  Podcast routes not available');
 }
 
 try {
   const weatherRoutes = require('./routes/weather');
   app.use('/api/weather', weatherRoutes);
-  logger.info('✅ Weather routes loaded');
+  console.log('✅ Weather routes loaded');
 } catch (e) {
-  logger.warn('⚠️  Weather routes not available');
+  console.log('⚠️  Weather routes not available');
+}
+
+try {
+  const greetingRoutes = require('./routes/greeting');
+  app.use('/api/greeting', greetingRoutes);
+  console.log('✅ Greeting routes loaded');
+} catch (e) {
+  console.log('⚠️  Greeting routes not available');
 }
 
 try {
   const adminRoutes = require('./routes/admin');
   app.use('/api/admin', adminRoutes);
-  logger.info('✅ Admin routes loaded');
+  console.log('✅ Admin routes loaded');
 } catch (e) {
-  logger.warn('⚠️  Admin routes not available');
+  console.log('⚠️  Admin routes not available');
 }
 
 // Health check endpoint
@@ -144,7 +154,7 @@ app.post('/api/phase2/test', async (req, res) => {
       }
     });
   } catch (error) {
-    logger.error('❌ Phase 2 test error', { error: error.message, stack: error.stack });
+    console.error('Phase 2 test error:', error);
     res.status(500).json({
       success: false,
       error: error.message
@@ -161,7 +171,7 @@ app.post('/api/process', async (req, res) => {
       results
     });
   } catch (error) {
-    logger.error('❌ Processing error', { error: error.message, stack: error.stack });
+    console.error('Processing error:', error);
     res.status(500).json({
       success: false,
       error: error.message
@@ -169,26 +179,10 @@ app.post('/api/process', async (req, res) => {
   }
 });
 
-// Manual email scan endpoint
-app.post('/api/email/scan', async (req, res) => {
-  try {
-    logger.info('🔄 Manual email scan triggered via API');
-    const { runEmailScanning } = require('./jobs/email-scanning-job');
-    const results = await runEmailScanning();
-
-    res.json({
-      success: results.success,
-      message: 'Email scan completed',
-      results
-    });
-  } catch (error) {
-    logger.error('❌ Manual email scan error', { error: error.message, stack: error.stack });
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
-  }
-});
+// ============================================================
+// EMAIL SCANNING
+// ============================================================
+// Email scanning is handled by the main server, not this minimal Railway version
 
 // ============================================================
 // ERROR HANDLING
@@ -204,7 +198,7 @@ app.use((req, res) => {
 
 // Global error handler
 app.use((err, req, res, next) => {
-  logger.error('❌ Server error', { error: err.message, stack: err.stack });
+  console.error('Server error:', err);
   res.status(500).json({
     error: 'Internal server error',
     message: err.message
@@ -213,16 +207,16 @@ app.use((err, req, res, next) => {
 
 // Handle uncaught exceptions
 process.on('uncaughtException', (err) => {
-  logger.error('❌ Uncaught exception', { error: err.message, stack: err.stack });
+  console.error('Uncaught exception:', err);
 });
 
 process.on('unhandledRejection', (err) => {
-  logger.error('❌ Unhandled rejection', { error: err });
+  console.error('Unhandled rejection:', err);
 });
 
 // Graceful shutdown
 process.on('SIGTERM', () => {
-  logger.warn('📛 SIGTERM received, shutting down gracefully...');
+  console.log('📛 SIGTERM received, shutting down gracefully...');
   process.exit(0);
 });
 
@@ -231,46 +225,31 @@ process.on('SIGTERM', () => {
 // ============================================================
 
 const { scheduleQualityControl } = require('./jobs/quality-control-job');
-const { generateBriefings } = require('./jobs/generate-briefings');
-const { scheduleEmailScanning } = require('./jobs/email-scanning-job');
+const { scheduleBriefingGeneration } = require('./jobs/generate-briefings');
 
 // Start QC job (runs every 6 hours: midnight, 6am, noon, 6pm ET)
 scheduleQualityControl();
 
-// Start email scanning (runs every 30 minutes)
-scheduleEmailScanning();
-
-// Schedule briefing generation (runs 3x daily: 6am, 12pm, 6pm ET)
-// Cron syntax: minute hour * * *
-// Uses Eastern Time timezone
-cron.schedule('0 6,12,18 * * *', async () => {
-  try {
-    logger.info('🔄 Scheduled briefing generation starting...');
-    await generateBriefings();
-    logger.info('✅ Scheduled briefing generation complete');
-  } catch (error) {
-    logger.error('❌ Scheduled briefing generation failed', { error: error.message });
-  }
-}, {
-  timezone: 'America/New_York'
-});
+// Start briefing generation job (runs 3x daily: 6am, 12pm, 6pm ET)
+scheduleBriefingGeneration();
 
 // ============================================================
 // START SERVER
 // ============================================================
 
 app.listen(PORT, () => {
-  logger.info('='.repeat(60));
-  logger.info(`✅ RAILWAY PHASE 2 SERVER RUNNING ON PORT ${PORT}`);
-  logger.info('='.repeat(60));
-  logger.info('Active Services', {
-    centralProcessor: 'Ready',
-    threeEntityCreation: 'Tasks, Events, Narratives',
-    emailScanning: 'Scheduled (every 30 minutes)',
-    qualityControl: 'Scheduled (every 6 hours)',
-    briefingGeneration: 'Scheduled (6am, 12pm, 6pm ET)',
-    phase2TestEndpoint: '/api/phase2/test',
-    url: process.env.RAILWAY_STATIC_URL || 'http://localhost:' + PORT
-  });
-  logger.info('='.repeat(60));
+  console.log('\n' + '='.repeat(60));
+  console.log(`✅ RAILWAY PHASE 2 SERVER RUNNING ON PORT ${PORT}`);
+  console.log('='.repeat(60));
+  console.log(`
+Active Services:
+  🔄 Central Processor: Ready
+  📊 Three-Entity Creation: Tasks, Events, Narratives
+  🔍 Quality Control: Scheduled (every 6 hours)
+  📅 Briefing Generation: Scheduled (6am, 12pm, 6pm ET)
+  🌐 Phase 2 Test Endpoint: /api/phase2/test
+
+URL: ${process.env.RAILWAY_STATIC_URL || 'http://localhost:' + PORT}
+  `);
+  console.log('='.repeat(60) + '\n');
 });
