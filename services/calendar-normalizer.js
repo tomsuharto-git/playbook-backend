@@ -51,7 +51,8 @@ function normalizeOutlookEvent(outlookEvent) {
   // This prevents "No Title" events from ever entering the system
   const subject = outlookEvent.subject || '';
   if (!subject || subject.trim() === '' || subject.trim() === 'No Title') {
-    logger.info('🚫 [LAYER 1] Rejecting Outlook event without valid subject (ID: )', { id || 'unknown': outlookEvent.id || 'unknown' });
+    const eventId = outlookEvent.id || 'unknown';
+    logger.info('🚫 [LAYER 1] Rejecting Outlook event without valid subject (ID: )', { eventId: eventId });
     return null;
   }
 
@@ -115,7 +116,8 @@ function normalizeGoogleEvent(googleEvent) {
   // This prevents "No Title" events from ever entering the system
   const summary = googleEvent.summary || '';
   if (!summary || summary.trim() === '' || summary.trim() === 'No Title') {
-    logger.info('🚫 [LAYER 1] Rejecting Google event without valid summary (ID: )', { id || 'unknown': googleEvent.id || 'unknown' });
+    const eventId = googleEvent.id || 'unknown';
+    logger.info('🚫 [LAYER 1] Rejecting Google event without valid summary (ID: )', { eventId: eventId });
     return null;
   }
 
