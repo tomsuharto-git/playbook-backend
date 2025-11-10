@@ -26,7 +26,8 @@ async function searchVaultContext(event) {
 
   if (keywords.length === 0) return '';
 
-  logger.info('Searching vault for:', { join(', '): keywords.join(', ') });
+  const keywordsStr = keywords.join(', ');
+  logger.info('Searching vault for:', { keywords: keywordsStr });
 
   const contextSnippets = [];
 
@@ -317,7 +318,8 @@ async function generateEventBriefings(events) {
   for (let i = 0; i < events.length; i++) {
     const event = events[i];
     const title = event.summary || 'No Title';
-    logger.info('\n   [/] Processing:', { i + 1: i + 1, length: events.length, title: title });
+    const eventNum = i + 1;
+    logger.info('\n   [/] Processing:', { eventNum: eventNum, length: events.length, title: title });
 
     try {
       // Search vault for context
