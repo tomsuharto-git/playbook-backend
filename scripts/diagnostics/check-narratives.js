@@ -1,6 +1,5 @@
 const logger = require('../../utils/logger');
-
-const { supabase } = require('./db/supabase-client');
+const { supabase } = require('../../db/supabase-client');
 
 (async () => {
   logger.debug('\n🔍 Checking project narratives...\n');
@@ -13,19 +12,19 @@ const { supabase } = require('./db/supabase-client');
     .limit(20);
 
   if (allError) {
-    logger.error('❌ Error fetching narratives:', { arg0: allError });
+    logger.error('❌ Error fetching narratives:', { error: allError.message });
     process.exit(1);
   }
 
   logger.debug('📊 Total narratives in database:', { count: count });
-  logger.debug('📝 Showing latest  narratives:\n', { length || 0: allNarratives?.length || 0 });
+  logger.debug('📝 Showing latest narratives:', { length: allNarratives?.length || 0 });
 
   if (allNarratives && allNarratives.length > 0) {
     allNarratives.forEach((n, i) => {
-      logger.info('. Project ID:', { i + 1: i + 1, project_id: n.project_id });
-      logger.info('Source:  | Date:', { source: n.source, toLocaleDateString(): new Date(n.date).toLocaleDateString() });
-      logger.info('Headline:', { headline: n.headline });
-      logger.info('Created: \n', { toLocaleString(): new Date(n.created_at).toLocaleString() });
+      logger.info(`${i + 1}. Project ID: ${n.project_id}`);
+      logger.info(`   Source: ${n.source} | Date: ${new Date(n.date).toLocaleDateString()}`);
+      logger.info(`   Headline: ${n.headline}`);
+      logger.info(`   Created: ${new Date(n.created_at).toLocaleString()}\n`);
     });
   } else {
     logger.info('ℹ️  No narratives found in database');
@@ -52,7 +51,7 @@ const { supabase } = require('./db/supabase-client');
       .sort(([, a], [, b]) => b - a)
       .forEach(([pid, count]) => {
         const project = projects.find(p => p.id === parseInt(pid));
-        logger.info('(ID: ):  narratives', { name || 'Unknown': project?.name || 'Unknown', pid: pid, count: count });
+        logger.info(`${project?.name || 'Unknown'} (ID: ${pid}): ${count} narratives`);
       });
   }
 

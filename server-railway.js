@@ -180,6 +180,34 @@ app.post('/api/process', async (req, res) => {
 });
 
 // ============================================================
+// NARRATIVE SYNC ENDPOINTS
+// ============================================================
+
+const { syncMeetingNarratives, backfillMeetingNarratives } = require('./jobs/sync-meeting-narratives');
+
+// Manual narrative sync endpoint
+app.post('/api/narratives/sync', async (req, res) => {
+  try {
+    const result = await syncMeetingNarratives();
+    res.json(result);
+  } catch (error) {
+    console.error('Narrative sync error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Backfill all meeting narratives (one-time fix)
+app.post('/api/narratives/backfill', async (req, res) => {
+  try {
+    const result = await backfillMeetingNarratives();
+    res.json(result);
+  } catch (error) {
+    console.error('Narrative backfill error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ============================================================
 // EMAIL SCANNING
 // ============================================================
 // Email scanning is handled by the main server, not this minimal Railway version
@@ -226,12 +254,16 @@ process.on('SIGTERM', () => {
 
 const { scheduleQualityControl } = require('./jobs/quality-control-job');
 const { scheduleBriefingGeneration } = require('./jobs/generate-briefings');
+const { startSyncSchedule: startNarrativeSyncSchedule } = require('./jobs/sync-meeting-narratives');
 
 // Start QC job (runs every 6 hours: midnight, 6am, noon, 6pm ET)
 scheduleQualityControl();
 
 // Start briefing generation job (runs 3x daily: 6am, 12pm, 6pm ET)
 scheduleBriefingGeneration();
+
+// Start meeting narrative sync job (runs 3x daily: 6:15am, 12:15pm, 6:15pm ET)
+startNarrativeSyncSchedule();
 
 // ============================================================
 // START SERVER
@@ -247,6 +279,7 @@ Active Services:
   📊 Three-Entity Creation: Tasks, Events, Narratives
   🔍 Quality Control: Scheduled (every 6 hours)
   📅 Briefing Generation: Scheduled (6am, 12pm, 6pm ET)
+  📝 Meeting Narrative Sync: Scheduled (6:15am, 12:15pm, 6:15pm ET)
   🌐 Phase 2 Test Endpoint: /api/phase2/test
 
 URL: ${process.env.RAILWAY_STATIC_URL || 'http://localhost:' + PORT}

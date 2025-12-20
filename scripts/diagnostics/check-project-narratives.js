@@ -1,6 +1,5 @@
 const logger = require('../../utils/logger');
-
-const { supabase } = require('./db/supabase-client');
+const { supabase } = require('../../db/supabase-client');
 
 (async () => {
   logger.debug('\n🔍 Checking project narratives in projects table...\n');
@@ -12,11 +11,11 @@ const { supabase } = require('./db/supabase-client');
     .order('name');
 
   if (error) {
-    logger.error('❌ Error fetching projects:', { arg0: error });
+    logger.error('❌ Error fetching projects:', { error: error.message });
     process.exit(1);
   }
 
-  logger.debug('📊 Found  projects\n', { length || 0: projects?.length || 0 });
+  logger.debug(`📊 Found ${projects?.length || 0} projects\n`);
 
   let narrativeCount = 0;
   let totalNarratives = 0;
@@ -26,20 +25,20 @@ const { supabase } = require('./db/supabase-client');
     if (narratives.length > 0) {
       narrativeCount++;
       totalNarratives += narratives.length;
-      logger.info('✅  ():  narratives', { name: p.name, tag || 'No tag': p.tag || 'No tag', length: narratives.length });
+      logger.info(`✅ ${p.name} (${p.tag || 'No tag'}): ${narratives.length} narratives`);
       narratives.slice(0, 2).forEach(n => {
-        logger.info('- :  ()', { date: n.date, headline: n.headline, source: n.source });
+        logger.info(`   - ${n.date}: ${n.headline} (${n.source})`);
       });
       if (narratives.length > 2) {
-        logger.info('... and  more', { length - 2: narratives.length - 2 });
+        logger.info(`   ... and ${narratives.length - 2} more`);
       }
       logger.info('');
     }
   });
 
   logger.info('\n📈 Summary:');
-  logger.info('Projects with narratives: /', { narrativeCount: narrativeCount, length: projects.length });
-  logger.info('Total narrative entries:', { totalNarratives: totalNarratives });
+  logger.info(`Projects with narratives: ${narrativeCount}/${projects.length}`);
+  logger.info(`Total narrative entries: ${totalNarratives}`);
 
   if (narrativeCount === 0) {
     logger.warn('\n⚠️  No narratives found in any projects!');
